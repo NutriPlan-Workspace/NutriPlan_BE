@@ -1,24 +1,19 @@
 import cors from 'cors';
-import dotenv from 'dotenv';
-import express, { json, Request, Response } from 'express';
+import express, { json } from 'express';
 
-import connectDB from './config/database';
-
-dotenv.config();
+import connectDB from '@/configs/database';
+import { env } from '@/configs/env';
+import { swaggerSpec, swaggerUi } from '@/configs/swagger';
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = env.PORT;
 
 connectDB();
 
-// Middleware
 app.use(cors());
 app.use(json());
 
-// route
-app.get('/', (req: Request, res: Response) => {
-  res.send('hello from backend server');
-});
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
