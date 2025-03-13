@@ -8,9 +8,21 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
+    "sourceMap": true,
+    "baseUrl": "./src",
     "paths": {
-      "@/*": ["src/*"]
+      "@/services/*": ["services/*"],
+      "@/controllers/*": ["controllers/*"],
+      "@/models/*": ["models/*"],
+      "@/models": ["models"],
+      "@/middleware/*": ["middleware/*"],
+      "@/routes/*": ["routes/*"],
+      "@/configs/*": ["configs/*"],
+      "@/constants/*": ["constants/*"],
+      "@/validations/*": ["validations/*"],
+      "@/utils/*": ["utils/*"],
+      "@/types/*": ["types/*"],
+      "@/types": ["types"],
     }
   },
   "ts-node": {

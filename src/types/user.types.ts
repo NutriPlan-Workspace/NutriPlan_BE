@@ -27,6 +27,7 @@ export interface User extends SoftDeleteDocument {
     fatTarget: number;
     minimumFiber: number;
   };
+  refreshToken: string;
   primaryDiet: PrimaryDiet;
   role: UserRole;
 }

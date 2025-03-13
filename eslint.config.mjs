@@ -22,8 +22,6 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_' },
       ],
-      '@typescript-eslint/explicit-function-return-type': 'warn',
-      '@typescript-eslint/explicit-module-boundary-types': 'warn',
       '@typescript-eslint/no-inferrable-types': 'warn',
       '@typescript-eslint/no-non-null-assertion': 'warn',
       '@typescript-eslint/no-var-requires': 'error',

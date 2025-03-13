@@ -50,6 +50,7 @@ const UserSchema = new Schema<User>(
       required: true,
     },
     role: { type: String, enum: Object.values(UserRole), required: true },
+    refreshToken: { type: String, required: false },
   },
   { timestamps: true, autoCreate: true },
 );

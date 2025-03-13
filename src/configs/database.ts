@@ -1,13 +1,10 @@
-import dotenv from 'dotenv';
 import { connect } from 'mongoose';
 
-dotenv.config();
-
-const MONGO_URI_LINK: string = process.env.MONGO_URI || 'Default string';
+import { DATABASE_URL } from './secrets';
 
 const connectDB = async (): Promise<void> => {
   try {
-    const conn = await connect(MONGO_URI_LINK);
+    const conn = await connect(DATABASE_URL);
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error: any) {
     console.error(`Error: ${error.message}`);
