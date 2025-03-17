@@ -1,4 +1,4 @@
-import { model, Schema } from 'mongoose';
+import { model, PaginateModel, Schema } from 'mongoose';
 import MongooseDelete, { SoftDeleteModel } from 'mongoose-delete';
 import paginate from 'mongoose-paginate-v2';
 
@@ -61,4 +61,4 @@ UserSchema.plugin(paginate);
 export const UserModel = model<User>(
   'User',
   UserSchema,
-) as SoftDeleteModel<User>;
+) as SoftDeleteModel<User> & PaginateModel<User>;
