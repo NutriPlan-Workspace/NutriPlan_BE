@@ -2,7 +2,7 @@ import { model, Schema } from 'mongoose';
 import MongooseDelete, { SoftDeleteModel } from 'mongoose-delete';
 import paginate from 'mongoose-paginate-v2';
 
-import { MealPlan } from '@/types';
+import type { MealPlan } from '@/types';
 
 const MealPlanSchema = new Schema<MealPlan>(
   {

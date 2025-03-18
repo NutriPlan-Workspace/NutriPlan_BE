@@ -1,11 +1,16 @@
 import { compare } from 'bcryptjs';
+import { InferSchemaType } from 'mongoose';
 
 import { UserModel } from '@/models';
+import { CreateUserDto } from '@/schemas/user.schema';
 import {
   generateAccessToken,
   generateRefreshToken,
   verifyAccessToken,
 } from '@/utils/jwtToken';
+import { hashPassword } from '@/utils/passwordHash';
+
+export type UserType = InferSchemaType<typeof UserModel.schema>;
 
 class UserService {
   async loginHandler(email: string, password: string) {
@@ -51,6 +56,12 @@ class UserService {
     );
 
     return result;
+  }
+
+  async createUser(userData: CreateUserDto): Promise<UserType> {
+    userData.password = await hashPassword(userData.password);
+    const user = new UserModel(userData);
+    return await user.save();
   }
 }
 

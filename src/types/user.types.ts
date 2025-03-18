@@ -32,6 +32,12 @@ export interface User extends SoftDeleteDocument {
   role: UserRole;
 }
 
+export type UserResponse = {
+  fullName: string;
+  email: string;
+  role: string;
+};
+
 export enum Gender {
   MALE = 'male',
   FEMALE = 'female',

@@ -11,11 +11,13 @@
     "sourceMap": true,
     "baseUrl": "./src",
     "paths": {
+      "@/schemas/*": ["schemas/*"],
+      "@/schemas": ["schemas"],
       "@/services/*": ["services/*"],
       "@/controllers/*": ["controllers/*"],
       "@/models/*": ["models/*"],
       "@/models": ["models"],
-      "@/middleware/*": ["middleware/*"],
+      "@/middlewares/*": ["middlewares/*"],
       "@/routes/*": ["routes/*"],
       "@/configs/*": ["configs/*"],
       "@/constants/*": ["constants/*"],
@@ -23,7 +25,7 @@
       "@/utils/*": ["utils/*"],
       "@/types/*": ["types/*"],
       "@/types": ["types"],
-    }
+   }
   },
   "ts-node": {
     "require": ["tsconfig-paths/register"]

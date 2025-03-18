@@ -12,3 +12,5 @@ export const REFRESH_SECRET: string =
 export const ACCESS_EXPIRES_IN = '15m';
 export const REFRESH_EXPIRES_IN = '7d';
 export const SALT_ROUNDS: number = Number(process.env.SALT_ROUNDS) || 10;
+export const SERVER_URL = `http://localhost:${PORT}/api`;
+export const FRONTEND_BASE_URL: string = process.env.FRONTEND_BASE_URL || '';

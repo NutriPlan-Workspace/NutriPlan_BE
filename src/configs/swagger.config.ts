@@ -1,7 +1,7 @@
 import swaggerJsDoc, { Options } from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 
-import { env } from '@/configs/env';
+import { SERVER_URL } from '@/configs/secrets';
 import {
   API_DESCRIPTION,
   API_TITLE,
@@ -18,7 +18,7 @@ const options: Options = {
       version: API_VERSION,
       description: API_DESCRIPTION,
     },
-    servers: [{ url: env.SERVER_URL }],
+    servers: [{ url: SERVER_URL }],
     tags: SWAGGER_TAGS,
     components: {
       securitySchemes: {

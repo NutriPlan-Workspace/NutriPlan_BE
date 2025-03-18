@@ -2,7 +2,7 @@ import { model, Schema } from 'mongoose';
 import MongooseDelete, { SoftDeleteModel } from 'mongoose-delete';
 import paginate from 'mongoose-paginate-v2';
 
-import { Food } from '@/types';
+import type { Food } from '@/types';
 
 export const NutritionSchema = new Schema({
   carbs: Number,

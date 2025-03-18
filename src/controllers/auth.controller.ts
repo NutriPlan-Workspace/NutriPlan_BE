@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { ERROR_MESSAGE, SUCCESS_MESSAGE } from '@/constants/messages';
 import { STATUS_CODE } from '@/constants/statusCodes';
 import userService from '@/services/auth.service';
+import type { User, UserResponse } from '@/types/user.types';
 import {
   errorResponse,
   serverError,
@@ -10,6 +11,10 @@ import {
 } from '@/utils/responseFormats';
 
 class UserController {
+  constructor() {
+    this.register = this.register.bind(this);
+  }
+
   async login(req: Request, res: Response) {
     try {
       const { email, password } = req.body;
@@ -89,6 +94,34 @@ class UserController {
         .json(serverError(error));
     }
   }
-}
 
+  async register(req: Request, res: Response): Promise<void> {
+    try {
+      const createdUser = await userService.createUser(req.body);
+      const user = createdUser.toObject ? createdUser.toObject() : createdUser;
+      const responseUser = this.formatUserResponse(user);
+      res
+        .status(STATUS_CODE.SUCCESS.CREATED)
+        .json(
+          successResponse(
+            responseUser,
+            SUCCESS_MESSAGE.REGISTER_SUCCESS,
+            STATUS_CODE.SUCCESS.CREATED,
+          ),
+        );
+    } catch (error: any) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(serverError(error?.message));
+    }
+  }
+
+  private formatUserResponse(user: User): UserResponse {
+    return {
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+    };
+  }
+}
 export default new UserController();
