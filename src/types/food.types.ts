@@ -143,3 +143,8 @@ export interface Food extends SoftDeleteDocument {
   categoryId: Schema.Types.ObjectId;
   secondaryCategoryId: Schema.Types.ObjectId;
 }
+
+export interface FoodWithIngredients {
+  mainFood: Food;
+  ingredientList: Food[];
+}
