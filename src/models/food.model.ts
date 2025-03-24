@@ -142,7 +142,11 @@ const FoodSchema = new Schema<Food>(
     ],
     ingredients: [
       {
-        ingredientFoodId: { type: String, required: true },
+        ingredientFoodId: {
+          type: Schema.Types.ObjectId,
+          ref: 'Food',
+          required: true,
+        },
         amount: { type: Number, required: true },
         unit: { type: Number, required: true },
         preparation: { type: String, required: false },
