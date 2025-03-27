@@ -1,3 +1,4 @@
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { json } from 'express';
 
@@ -13,6 +14,7 @@ connectDB();
 
 app.use(cors({ origin: FRONTEND_BASE_URL, credentials: true }));
 app.use(json());
+app.use(cookieParser());
 
 app.use(ROUTES.API_DOCS, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use(ROUTES.ROOT.PATH, Routes);

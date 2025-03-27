@@ -19,7 +19,6 @@ class UserController {
     try {
       const { email, password } = req.body;
       const result = await userService.loginHandler(email, password);
-
       if (!result) {
         res
           .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)

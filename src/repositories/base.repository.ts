@@ -17,7 +17,7 @@ export class BaseRepository<T extends SoftDeleteDocument> {
   }
 
   getById(id: string): Promise<T | null> {
-    return this.model.findById(id).exec();
+    return this.model.findOne({ _id: id }).exec();
   }
 
   update(id: string, data: UpdateQuery<T>): Promise<T | null> {

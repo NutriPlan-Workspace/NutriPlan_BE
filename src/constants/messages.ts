@@ -17,6 +17,7 @@ export const ERROR_MESSAGE = {
   INVALID_LOGOUT: 'Invalid to logout',
   INVALID_LOGIN: 'Invalid email or password',
   INVALID_PARAMETER: 'Invalid request parameters',
+  INVALID_TOKEN: 'Invalid token',
   NO_TOKEN_PROVIDED: 'No access token provided',
   AUTH_ERROR: 'Access is denied',
   ERROR: 'Error',

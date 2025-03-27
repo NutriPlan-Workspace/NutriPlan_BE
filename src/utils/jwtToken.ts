@@ -6,12 +6,7 @@ import {
   REFRESH_EXPIRES_IN,
   REFRESH_SECRET,
 } from '@/configs/secrets';
-
-interface TokenPayload {
-  id: string;
-  email: string;
-  fullName: string;
-}
+import type { TokenPayload } from '@/types';
 
 export const generateAccessToken = (payload: TokenPayload): string => {
   const options: SignOptions = { expiresIn: ACCESS_EXPIRES_IN };

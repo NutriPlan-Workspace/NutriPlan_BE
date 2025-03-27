@@ -63,3 +63,13 @@ export const serverError = <T>(
   message,
   data,
 });
+
+export const emptyArrayResponse = (
+  message = SUCCESS_MESSAGE.REQUEST_SUCCESS,
+  code = STATUS_CODE.SUCCESS.OK,
+) => ({
+  success: true,
+  code,
+  message,
+  data: [],
+});

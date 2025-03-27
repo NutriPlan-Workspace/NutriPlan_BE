@@ -1,4 +1,5 @@
 import { model, Schema } from 'mongoose';
+import { PaginateModel } from 'mongoose';
 import MongooseDelete, { SoftDeleteModel } from 'mongoose-delete';
 import paginate from 'mongoose-paginate-v2';
 
@@ -20,15 +21,14 @@ const UserSchema = new Schema<User>(
     refreshToken: { type: String, required: false },
     physicalStat: {
       type: {
-        gender: { type: String, enum: Object.values(Gender), required: true },
-        height: { type: Number, required: true },
-        weight: { type: Number, required: true },
-        dateOfBirth: { type: Date, required: true },
-        bodyFat: { type: String, enum: Object.values(BodyFat), required: true },
+        gender: { type: String, enum: Object.values(Gender) },
+        height: { type: Number },
+        weight: { type: Number },
+        dateOfBirth: { type: Date },
+        bodyFat: { type: String, enum: Object.values(BodyFat) },
         activityLevel: {
           type: String,
           enum: Object.values(ActivityLevel),
-          required: true,
         },
         time: { type: Date, default: Date.now },
       },
@@ -72,6 +72,6 @@ UserSchema.plugin(paginate);
 export const UserModel = model<User>(
   'User',
   UserSchema,
-) as SoftDeleteModel<User>;
+) as SoftDeleteModel<User> & PaginateModel<User>;
 
 export default UserModel;

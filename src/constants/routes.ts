@@ -10,13 +10,10 @@ export const ROUTES = {
   },
   MEALPLAN: {
     PATH: '/planner',
-    GETALL: '/:id',
-    ADD: '/add',
-    GETBYDATE: '/:date/:userId',
-    GETBYWEEK: '/week/:date/:userId',
-    GETBYRANGE: '/:from/:to/:userId',
-    EDIT: '/edit',
-    DELETE: '/:foodId',
+    ADD: '/',
+    GET: '/',
+    EDIT: '/:id',
+    DELETE: '/:id',
   },
   API_DOCS: '/api-docs',
 };

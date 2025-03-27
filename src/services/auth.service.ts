@@ -3,6 +3,7 @@ import { InferSchemaType } from 'mongoose';
 
 import { UserModel } from '@/models';
 import { CreateUserDto } from '@/schemas/user.schema';
+import type { TokenPayload } from '@/types';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -24,8 +25,8 @@ class UserService {
       return null;
     }
 
-    const payload = {
-      id: user.id as string,
+    const payload: TokenPayload = {
+      id: user.id,
       email: user.email,
       fullName: user.fullName,
       role: user.role,

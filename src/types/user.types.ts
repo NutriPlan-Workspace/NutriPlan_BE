@@ -71,3 +71,10 @@ export enum UserRole {
   USER = 'user',
   ADMIN = 'admin',
 }
+
+export interface TokenPayload {
+  id: string;
+  email: string;
+  fullName: string;
+  role: string;
+}

@@ -135,11 +135,7 @@ const FoodSchema = new Schema<Food>(
         description: { type: String, required: true },
       },
     ],
-    directions: [
-      {
-        description: { type: String, required: true },
-      },
-    ],
+    directions: [{ type: String, required: true }],
     ingredients: [
       {
         ingredientFoodId: {
