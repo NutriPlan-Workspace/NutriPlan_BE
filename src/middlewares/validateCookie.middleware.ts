@@ -5,7 +5,7 @@ import { UserRole } from '@/types/user.types';
 import { verifyAccessToken } from '@/utils/jwtToken';
 import { forbiddenResponse, unauthResponse } from '@/utils/responseFormats';
 
-export const validateAccesToken = (
+export const validateAccessToken = (
   req: Request,
   res: Response,
   next: NextFunction,

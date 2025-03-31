@@ -22,6 +22,13 @@ export const ERROR_MESSAGE = {
   AUTH_ERROR: 'Access is denied',
   ERROR: 'Error',
   NOTFOUND: '404 Not Found',
+  USER: {
+    CHANGE_PASSWORD: {
+      INCORRECT_OLD_PASSWORD: 'Old password is incorrect',
+    },
+    NOT_FOUND: 'User not found',
+    UPDATE_FAILED: 'Failed to update user',
+  },
   SERVER_ERROR: 'Internal server error',
 };
 

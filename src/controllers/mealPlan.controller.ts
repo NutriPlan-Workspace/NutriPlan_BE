@@ -14,7 +14,14 @@ class MealPlanController {
   async addFoodToMealPlan(req: Request, res: Response) {
     try {
       const userId = req.user?.id;
-      const result = await mealPlanService.addFoodToMealPlan(req.body, userId!);
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
+
+      const result = await mealPlanService.addFoodToMealPlan(req.body, userId);
       if (!result) {
         res.status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND).json(notFoundResponse());
       } else {
@@ -66,24 +73,32 @@ class MealPlanController {
       const week = req.query?.week;
       const userId = req.user?.id;
       let result;
+
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
+
       if (date && week === 'true') {
         result = await mealPlanService.getMealPlanByWeek(
           new Date(date as string),
-          userId!,
+          userId,
         );
       } else if (date) {
         result = await mealPlanService.getMealPlanByDate(
           new Date(date as string),
-          userId!,
+          userId,
         );
       } else if (from && to) {
         result = await mealPlanService.getMealPlanByRange(
           new Date(from as string),
           new Date(to as string),
-          userId!,
+          userId,
         );
       } else if (week === 'true') {
-        result = await mealPlanService.getMealPlanByWeek(new Date(), userId!);
+        result = await mealPlanService.getMealPlanByWeek(new Date(), userId);
       }
       if (!result || (Array.isArray(result) && result.length === 0)) {
         res.status(STATUS_CODE.SUCCESS.OK).json(emptyArrayResponse());

@@ -1,10 +1,16 @@
-import { FilterQuery, UpdateQuery } from 'mongoose';
+import {
+  FilterQuery,
+  PaginateModel,
+  PaginateOptions,
+  PaginateResult,
+  UpdateQuery,
+} from 'mongoose';
 import { SoftDeleteDocument, SoftDeleteModel } from 'mongoose-delete';
 
 export class BaseRepository<T extends SoftDeleteDocument> {
-  private model: SoftDeleteModel<T>;
+  private model: SoftDeleteModel<T> & PaginateModel<T>;
 
-  constructor(model: SoftDeleteModel<T>) {
+  constructor(model: SoftDeleteModel<T> & PaginateModel<T>) {
     this.model = model;
   }
 
@@ -26,6 +32,13 @@ export class BaseRepository<T extends SoftDeleteDocument> {
 
   delete(id: string): Promise<{ deletedCount: number }> {
     return this.model.deleteOne({ _id: id }).exec();
+  }
+
+  paginate(
+    query: FilterQuery<T>,
+    options: PaginateOptions,
+  ): Promise<PaginateResult<T>> {
+    return this.model.paginate(query, options);
   }
 
   async restoreById(id: string): Promise<T | null> {

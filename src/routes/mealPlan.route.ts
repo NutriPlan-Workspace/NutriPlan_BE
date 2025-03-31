@@ -2,11 +2,11 @@ import { Router } from 'express';
 
 import { ROUTES } from '@/constants/routes';
 import mealPlanController from '@/controllers/mealPlan.controller';
-import { validateAccesToken } from '@/middlewares/validateCookie.middleware';
+import { validateAccessToken } from '@/middlewares/validateCookie.middleware';
 
 const router = Router();
 
-router.use(validateAccesToken);
+router.use(validateAccessToken);
 
 // TODO: NOT YET CREATE MIDDLEWARE HANDLE PARAMS AND BODY VALUE
 router.get(ROUTES.MEALPLAN.GET, mealPlanController.getMealPlan);

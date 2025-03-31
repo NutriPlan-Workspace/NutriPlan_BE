@@ -1,13 +1,20 @@
-import { UserModel } from '@/models';
+import { UserRepository } from '@/repositories/user.repository';
 import type { User } from '@/types';
+import { compare } from '@/utils/passwordHash';
 
 class UserService {
+  private repository: UserRepository;
+
+  constructor() {
+    this.repository = new UserRepository();
+  }
+
   async addUser(user: Partial<User>): Promise<User> {
-    return UserModel.create(user);
+    return this.repository.create(user);
   }
 
   async getUserById(idUser: string): Promise<User | null> {
-    return UserModel.findById(idUser);
+    return this.repository.getById(idUser);
   }
 
   async getAllUsers(page: number, limit: number) {
@@ -17,18 +24,22 @@ class UserService {
       select: '-password',
       sort: { createdAt: -1 },
     };
-    return UserModel.paginate({}, options);
+    return this.repository.paginate({}, options);
   }
 
   async updateUser(
-    id: string,
+    userId: string,
     updatedData: Partial<User>,
   ): Promise<User | null> {
-    return UserModel.findByIdAndUpdate(id, updatedData, { new: true });
+    return this.repository.update(userId, updatedData);
   }
 
-  async deleteUser(id: string): Promise<User | null> {
-    return UserModel.findByIdAndDelete(id);
+  async deleteUser(id: string): Promise<{ deletedCount: number }> {
+    return this.repository.delete(id);
+  }
+
+  async comparePassword(password: string, hashPassword: string) {
+    return compare(password, hashPassword);
   }
 }
 

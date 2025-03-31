@@ -15,5 +15,9 @@ export const ROUTES = {
     EDIT: '/:id',
     DELETE: '/:id',
   },
+  USER: {
+    PATH: '/user',
+    CHANGE_PASSWORD: '/change-password',
+  },
   API_DOCS: '/api-docs',
 };

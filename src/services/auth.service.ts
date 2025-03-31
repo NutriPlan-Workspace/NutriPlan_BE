@@ -13,7 +13,7 @@ import { hashPassword } from '@/utils/passwordHash';
 
 export type UserType = InferSchemaType<typeof UserModel.schema>;
 
-class UserService {
+class AuthService {
   async loginHandler(email: string, password: string) {
     const user = await UserModel.findOne({ email });
     if (!user) {
@@ -66,4 +66,4 @@ class UserService {
   }
 }
 
-export default new UserService();
+export default new AuthService();

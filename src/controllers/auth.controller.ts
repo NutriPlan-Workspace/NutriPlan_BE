@@ -10,7 +10,7 @@ import {
   successResponse,
 } from '@/utils/responseFormats';
 
-class UserController {
+class AuthController {
   constructor() {
     this.register = this.register.bind(this);
   }
@@ -123,4 +123,4 @@ class UserController {
     };
   }
 }
-export default new UserController();
+export default new AuthController();

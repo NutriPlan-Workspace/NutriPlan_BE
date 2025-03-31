@@ -1,7 +1,7 @@
 import { Schema, Types } from 'mongoose';
 
 import { MealPlanRepository } from '@/repositories/mealPlan.repository';
-import { MealPlan } from '@/types';
+import type { MealPlan } from '@/types';
 import { getWeekRange } from '@/utils/date';
 
 class MealPlanService {

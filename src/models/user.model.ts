@@ -1,5 +1,4 @@
-import { model, Schema } from 'mongoose';
-import { PaginateModel } from 'mongoose';
+import { model, PaginateModel, Schema } from 'mongoose';
 import MongooseDelete, { SoftDeleteModel } from 'mongoose-delete';
 import paginate from 'mongoose-paginate-v2';
 

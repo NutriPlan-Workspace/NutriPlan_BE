@@ -48,3 +48,7 @@ export const createUserDto = baseUserSchema.extend({
 });
 
 export type CreateUserDto = z.infer<typeof createUserDto>;
+
+export const updateUserPasswordSchema = z.object({
+  newPassword: passwordSchema,
+});
