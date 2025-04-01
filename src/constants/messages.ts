@@ -21,7 +21,6 @@ export const ERROR_MESSAGE = {
   NO_TOKEN_PROVIDED: 'No access token provided',
   AUTH_ERROR: 'Access is denied',
   ERROR: 'Error',
-  NOTFOUND: '404 Not Found',
   USER: {
     CHANGE_PASSWORD: {
       INCORRECT_OLD_PASSWORD: 'Old password is incorrect',
@@ -29,7 +28,16 @@ export const ERROR_MESSAGE = {
     NOT_FOUND: 'User not found',
     UPDATE_FAILED: 'Failed to update user',
   },
+  NOT_FOUND: '404 Not Found',
   SERVER_ERROR: 'Internal server error',
+  TITLE_REQUIRED: 'Title is required',
+  FIBER_NUMBER: 'Minimum fiber must be a positive number',
+  MAX_SODIUM: 'Maximum sodium must be a positive number',
+  MAX_CHOLESTEROL: 'Maximum cholesterol must be a positive number',
+  CALORIES_NUMBER: 'Calories must be a positive number',
+  FROM_NUMBER: 'From must be a positive number',
+  TO_NUMBER: 'To must be a positive number',
+  FROM_LESS_THAN_TO: 'From must be less than To',
 };
 
 export const SUCCESS_MESSAGE = {

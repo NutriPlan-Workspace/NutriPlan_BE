@@ -18,6 +18,7 @@ export const ROUTES = {
   USER: {
     PATH: '/user',
     CHANGE_PASSWORD: '/change-password',
+    NUTRITION_TARGET: '/nutrition-target',
   },
   API_DOCS: '/api-docs',
 };

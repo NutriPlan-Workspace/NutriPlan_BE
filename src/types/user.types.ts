@@ -1,6 +1,11 @@
 import { Schema } from 'mongoose';
 import { SoftDeleteDocument } from 'mongoose-delete';
 
+interface Range {
+  from: number;
+  to: number;
+}
+
 export interface User extends SoftDeleteDocument {
   fullName: string;
   email: string;
@@ -21,11 +26,14 @@ export interface User extends SoftDeleteDocument {
   };
   nutritionGoals: {
     title: string;
-    caloriesLimit: number;
-    proteinTarget: number;
-    carbTarget: number;
-    fatTarget: number;
+    calories: number;
+    proteinTarget: Range;
+    carbTarget: Range;
+    fatTarget: Range;
     minimumFiber: number;
+    maxiumSodium: number;
+    maxiumCholesterol: number;
+    goalType: NutritionGoals;
   };
   refreshToken: string;
   primaryDiet: PrimaryDiet;
@@ -37,6 +45,12 @@ export type UserResponse = {
   email: string;
   role: string;
 };
+
+export enum NutritionGoals {
+  LOSE_FAT = 'lose fat',
+  MAINTAIN_WEIGHT = 'maintain weight',
+  BUILD_MUSCLE = 'build muscle',
+}
 
 export enum Gender {
   MALE = 'male',

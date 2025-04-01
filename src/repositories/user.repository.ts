@@ -1,6 +1,5 @@
+import { UserModel } from '@/models';
 import type { User } from '@/types';
-
-import { UserModel } from '../models';
 
 import { BaseRepository } from './base.repository';
 

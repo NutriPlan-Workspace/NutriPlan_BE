@@ -6,6 +6,7 @@ import {
   ActivityLevel,
   BodyFat,
   Gender,
+  NutritionGoals,
   PrimaryDiet,
   User,
   UserRole,
@@ -43,11 +44,27 @@ const UserSchema = new Schema<User>(
     nutritionGoals: {
       type: {
         title: { type: String },
-        caloriesLimit: { type: Number },
-        proteinTarget: { type: Number },
-        carbTarget: { type: Number },
-        fatTarget: { type: Number },
+        calories: { type: Number },
+        proteinTarget: {
+          from: { type: Number },
+          to: { type: Number },
+        },
+        carbTarget: {
+          from: { type: Number },
+          to: { type: Number },
+        },
+        fatTarget: {
+          from: { type: Number },
+          to: { type: Number },
+        },
         minimumFiber: { type: Number },
+        maxiumSodium: { type: Number },
+        maxiumCholesterol: { type: Number },
+        goalType: {
+          type: String,
+          enum: Object.values(NutritionGoals),
+          default: NutritionGoals.LOSE_FAT,
+        },
       },
       required: false,
     },

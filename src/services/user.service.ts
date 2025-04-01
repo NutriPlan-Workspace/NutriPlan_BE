@@ -41,6 +41,24 @@ class UserService {
   async comparePassword(password: string, hashPassword: string) {
     return compare(password, hashPassword);
   }
+
+  async getNutritionTarget(userId: string) {
+    const user = await this.repository.getById(userId, { nutritionGoals: 1 });
+    return user?.nutritionGoals ?? null;
+  }
+
+  async updateNutritionTarget(
+    userId: string,
+    nutritionGoals: Partial<User['nutritionGoals']>,
+  ) {
+    const user = await this.repository.update(
+      userId,
+      { nutritionGoals },
+      { nutritionGoals: 1 },
+    );
+
+    return user?.nutritionGoals ?? null;
+  }
 }
 
 export default new UserService();

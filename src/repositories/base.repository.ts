@@ -3,6 +3,7 @@ import {
   PaginateModel,
   PaginateOptions,
   PaginateResult,
+  QueryOptions,
   UpdateQuery,
 } from 'mongoose';
 import { SoftDeleteDocument, SoftDeleteModel } from 'mongoose-delete';
@@ -22,12 +23,23 @@ export class BaseRepository<T extends SoftDeleteDocument> {
     return this.model.find(query).exec();
   }
 
-  getById(id: string): Promise<T | null> {
-    return this.model.findOne({ _id: id }).exec();
+  getById(
+    id: string,
+    projection?: Record<string, unknown> | string | string[],
+    options?: QueryOptions,
+  ): Promise<T | null> {
+    return this.model.findById(id, projection, options || {}).exec();
   }
 
-  update(id: string, data: UpdateQuery<T>): Promise<T | null> {
-    return this.model.findByIdAndUpdate(id, data, { new: true }).exec();
+  update(
+    id: string,
+    data: UpdateQuery<T>,
+    projection?: Record<string, number> | string | string[],
+    options: QueryOptions = { new: true },
+  ): Promise<T | null> {
+    return this.model
+      .findByIdAndUpdate(id, data, { ...options, projection })
+      .exec();
   }
 
   delete(id: string): Promise<{ deletedCount: number }> {
