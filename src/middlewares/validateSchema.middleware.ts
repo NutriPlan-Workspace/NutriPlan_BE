@@ -31,7 +31,6 @@ const validateSchema =
             messages,
           }),
         );
-
         res
           .status(STATUS_CODE.CLIENT_ERROR.BAD_REQUEST)
           .json(

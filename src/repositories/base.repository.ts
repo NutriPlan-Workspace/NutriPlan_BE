@@ -19,8 +19,16 @@ export class BaseRepository<T extends SoftDeleteDocument> {
     return new this.model(data).save();
   }
 
-  getList(query: FilterQuery<T> = {}): Promise<T[]> {
-    return this.model.find(query).exec();
+  getList(
+    query: FilterQuery<T> = {},
+    projection?: Record<string, 0 | 1>,
+    options?: { skip?: number; limit?: number },
+  ): Promise<T[]> {
+    return this.model
+      .find(query, projection)
+      .skip(options?.skip ?? 0)
+      .limit(options?.limit ?? 10)
+      .exec();
   }
 
   getById(

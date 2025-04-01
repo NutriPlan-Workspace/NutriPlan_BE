@@ -4,6 +4,7 @@ import { InferSchemaType } from 'mongoose';
 import { UserModel } from '@/models';
 import { CreateUserDto } from '@/schemas/user.schema';
 import type { TokenPayload } from '@/types';
+import { createDefaultCollection } from '@/utils/createDefaultCollection';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -62,7 +63,9 @@ class AuthService {
   async createUser(userData: CreateUserDto): Promise<UserType> {
     userData.password = await hashPassword(userData.password);
     const user = new UserModel(userData);
-    return await user.save();
+    const savedUser = await user.save();
+    createDefaultCollection(savedUser._id.toString());
+    return savedUser;
   }
 }
 

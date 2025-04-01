@@ -38,6 +38,8 @@ export const ERROR_MESSAGE = {
   FROM_NUMBER: 'From must be a positive number',
   TO_NUMBER: 'To must be a positive number',
   FROM_LESS_THAN_TO: 'From must be less than To',
+  INVALID_OBJECTID: 'Invalid ObjectId',
+  INVALID_IMG_URL: 'Invalid image URL format',
 };
 
 export const SUCCESS_MESSAGE = {
@@ -45,4 +47,5 @@ export const SUCCESS_MESSAGE = {
   LOGOUT_SUCCESS: 'Logout success',
   REQUEST_SUCCESS: 'Request successful',
   REGISTER_SUCCESS: 'User created successfully',
+  COLLECTION_DELETED_SUCCESS: 'Collection deleted successfully',
 };

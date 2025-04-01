@@ -22,5 +22,13 @@ export const ROUTES = {
     GETSTAST: '/stats',
     EDITSTAST: '/stats',
   },
+  COLLECTION: {
+    PATH: '/collections',
+    GET: '/',
+    GETBYID: '/:id',
+    POST: '/',
+    PUT: '/:id',
+    DELETE: '/:id',
+  },
   API_DOCS: '/api-docs',
 };
