@@ -22,8 +22,18 @@ const UserSchema = new Schema<User>(
     physicalStat: {
       type: {
         gender: { type: String, enum: Object.values(Gender) },
-        height: { type: Number },
-        weight: { type: Number },
+        heightRecords: [
+          {
+            date: { type: Date, default: Date.now },
+            height: { type: Number, required: true },
+          },
+        ],
+        weightRecords: [
+          {
+            date: { type: Date, default: Date.now },
+            weight: { type: Number, required: true },
+          },
+        ],
         dateOfBirth: { type: Date },
         bodyFat: { type: String, enum: Object.values(BodyFat) },
         activityLevel: {

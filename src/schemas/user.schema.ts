@@ -12,16 +12,23 @@ import {
 } from '@/types';
 import { emailSchema, passwordSchema } from '@/validations/auth.validates';
 
-const dateDto = z.coerce.date().optional();
-
-const physicalStatDto = z.object({
+export const physicalStatDto = z.object({
   gender: z.nativeEnum(Gender),
-  height: z.number().min(50, ERROR_MESSAGE.HEIGHT_TOO_SMALL),
-  weight: z.number().min(10, ERROR_MESSAGE.WEIGHT_TOO_SMALL),
+  heightRecords: z.array(
+    z.object({
+      height: z.number().min(50, ERROR_MESSAGE.HEIGHT_TOO_SMALL),
+      date: z.coerce.date().optional(),
+    }),
+  ),
+  weightRecords: z.array(
+    z.object({
+      weight: z.number().min(10, ERROR_MESSAGE.WEIGHT_TOO_SMALL),
+      date: z.coerce.date().optional(),
+    }),
+  ),
   dateOfBirth: z.coerce.date(),
   bodyFat: z.nativeEnum(BodyFat),
   activityLevel: z.nativeEnum(ActivityLevel),
-  time: dateDto,
 });
 
 const rangeSchema = z

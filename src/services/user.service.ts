@@ -27,6 +27,53 @@ class UserService {
     return this.repository.paginate({}, options);
   }
 
+  async updatePhysicalStats(
+    userId: string,
+    physicalStats: Partial<User['physicalStat']>,
+  ) {
+    const user = await this.repository.getById(userId);
+    if (!user) {
+      return null;
+    }
+
+    user.physicalStat ||= {};
+
+    user.physicalStat.heightRecords ||= [];
+    user.physicalStat.weightRecords ||= [];
+
+    const today = new Date().toISOString().split('T')[0];
+    if (physicalStats?.heightRecords?.length) {
+      user.physicalStat.heightRecords ??= [];
+      const latestHeightRecord = user.physicalStat.heightRecords.slice(-1)[0];
+      if (latestHeightRecord?.date.toISOString().split('T')[0] === today) {
+        latestHeightRecord.height = physicalStats.heightRecords[0].height;
+      } else {
+        user.physicalStat.heightRecords.push({
+          height: physicalStats.heightRecords[0].height,
+          date: new Date(),
+        });
+      }
+    }
+    if (physicalStats?.weightRecords?.length) {
+      const latestWeightRecord = user.physicalStat.weightRecords.slice(-1)[0];
+      if (latestWeightRecord?.date.toISOString().split('T')[0] === today) {
+        latestWeightRecord.weight = physicalStats.weightRecords[0].weight;
+      } else {
+        user.physicalStat.weightRecords.push({
+          weight: physicalStats.weightRecords[0].weight,
+          date: new Date(),
+        });
+      }
+    }
+    await user.save();
+
+    return user.physicalStat;
+  }
+
+  async getPhysicalStats(userId: string) {
+    return this.repository.getPhysicalStats(userId);
+  }
+
   async updateUser(
     userId: string,
     updatedData: Partial<User>,

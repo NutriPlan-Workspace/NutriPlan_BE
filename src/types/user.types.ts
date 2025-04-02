@@ -13,8 +13,8 @@ export interface User extends SoftDeleteDocument {
   password: string;
   physicalStat: {
     gender: Gender;
-    height: number;
-    weight: number;
+    heightRecords: { date: Date; height: number }[];
+    weightRecords: { date: Date; weight: number }[];
     dateOfBirth: Date;
     bodyFat: BodyFat;
     activityLevel: ActivityLevel;
