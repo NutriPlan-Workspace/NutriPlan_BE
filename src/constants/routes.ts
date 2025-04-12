@@ -21,6 +21,7 @@ export const ROUTES = {
     NUTRITION_TARGET: '/nutrition-target',
     GETSTAST: '/stats',
     EDITSTAST: '/stats',
+    GET_NUTRI_BY_STATS: '/nutrition-by-stats',
   },
   COLLECTION: {
     PATH: '/collections',

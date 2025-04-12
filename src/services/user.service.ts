@@ -1,5 +1,10 @@
 import { UserRepository } from '@/repositories/user.repository';
 import type { User } from '@/types';
+import {
+  calculateAge,
+  calculateBMR,
+  calculateTDEE,
+} from '@/utils/calculateNutrition';
 import { compare } from '@/utils/passwordHash';
 
 class UserService {
@@ -65,6 +70,13 @@ class UserService {
         });
       }
     }
+    const excludedKeys = ['heightRecords', 'weightRecords'];
+
+    Object.entries(physicalStats).forEach(([key, value]) => {
+      if (!excludedKeys.includes(key) && value !== undefined) {
+        user.physicalStat[key] = value;
+      }
+    });
     await user.save();
 
     return user.physicalStat;
@@ -105,6 +117,52 @@ class UserService {
     );
 
     return user?.nutritionGoals ?? null;
+  }
+
+  async getCaloriesByStats(userId: string): Promise<{
+    calories: number;
+    proteinTarget: { from: number; to: number };
+    carbTarget: { from: number; to: number };
+    fatTarget: { from: number; to: number };
+  } | null> {
+    const user = await this.repository.getById(userId, {
+      physicalStat: 1,
+    });
+
+    if (!user) return null;
+
+    const sex = user.physicalStat.gender;
+    const age = calculateAge(user.physicalStat.dateOfBirth);
+
+    const latestHeight = user.physicalStat.heightRecords.at(-1)?.height;
+    const latestWeight = user.physicalStat.weightRecords.at(-1)?.weight;
+
+    if (!latestHeight || !latestWeight) return null;
+
+    const bmr = calculateBMR(sex, age, latestHeight, latestWeight);
+    const tdee = calculateTDEE(bmr, user.physicalStat.activityLevel);
+
+    const proteinTarget = {
+      from: Math.round((tdee * 0.1) / 4),
+      to: Math.round((tdee * 0.35) / 4),
+    };
+
+    const carbTarget = {
+      from: Math.round((tdee * 0.45) / 4),
+      to: Math.round((tdee * 0.65) / 4),
+    };
+
+    const fatTarget = {
+      from: Math.round((tdee * 0.2) / 9),
+      to: Math.round((tdee * 0.35) / 9),
+    };
+
+    return {
+      calories: tdee,
+      proteinTarget,
+      carbTarget,
+      fatTarget,
+    };
   }
 }
 

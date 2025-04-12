@@ -195,5 +195,35 @@ class UserController {
         );
     }
   }
+
+  async getCaloriesByStats(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const result = await userService.getCaloriesByStats(userId!);
+      if (!result) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
+          .json(
+            errorResponse(
+              null,
+              ERROR_MESSAGE.NOT_FOUND,
+              STATUS_CODE.CLIENT_ERROR.NOT_FOUND,
+            ),
+          );
+        return;
+      }
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(result));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            error,
+            ERROR_MESSAGE.SERVER_ERROR,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  }
 }
 export default new UserController();

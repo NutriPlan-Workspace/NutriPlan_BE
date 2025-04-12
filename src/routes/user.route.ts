@@ -14,6 +14,7 @@ const router = Router();
 router.use(validateAccessToken);
 
 router.get(ROUTES.USER.NUTRITION_TARGET, UserController.getNutritionTarget);
+router.get(ROUTES.USER.GET_NUTRI_BY_STATS, UserController.getCaloriesByStats);
 router.get(ROUTES.USER.GETSTAST, UserController.getPhysicalStats);
 router.put(
   ROUTES.USER.CHANGE_PASSWORD,
