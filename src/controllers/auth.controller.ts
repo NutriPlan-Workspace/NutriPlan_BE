@@ -31,16 +31,15 @@ class AuthController {
           );
       } else {
         const accessToken = result.accessToken;
+        const refreshToken = result.refreshToken;
         const payload = result.data.payload;
         res.cookie('accessToken', accessToken, { httpOnly: true });
+        res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+        });
         res
           .status(STATUS_CODE.SUCCESS.OK)
-          .json(
-            successResponse(
-              { payload, 'access token': accessToken },
-              SUCCESS_MESSAGE.LOGIN_SUCCESS,
-            ),
-          );
+          .json(successResponse({ payload }, SUCCESS_MESSAGE.LOGIN_SUCCESS));
       }
     } catch (error) {
       res
@@ -82,6 +81,7 @@ class AuthController {
             );
         } else {
           res.clearCookie('accessToken');
+          res.clearCookie('refreshToken');
           res
             .status(STATUS_CODE.SUCCESS.OK)
             .json(successResponse(null, SUCCESS_MESSAGE.LOGOUT_SUCCESS));

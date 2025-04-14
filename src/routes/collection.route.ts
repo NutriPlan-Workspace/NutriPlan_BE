@@ -21,7 +21,7 @@ router.get(
   collectionController.getCollection,
 );
 router.get(
-  ROUTES.COLLECTION.GETBYID,
+  ROUTES.COLLECTION.GET_BY_ID,
   validateObjectId,
   collectionController.getCollectionById,
 );

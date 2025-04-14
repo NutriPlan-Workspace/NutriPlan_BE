@@ -16,7 +16,3 @@ export const loginSchemaValidate = z.object({
   email: emailSchema,
   password: passwordSchema,
 });
-
-export const logoutSchemaValidate = z.object({
-  accessToken: z.string(),
-});

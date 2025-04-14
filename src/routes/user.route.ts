@@ -1,7 +1,6 @@
 import { Router } from 'express';
 
 import { ROUTES } from '@/constants/routes';
-import userController from '@/controllers/user.controller';
 import UserController from '@/controllers/user.controller';
 import { validateAccessToken } from '@/middlewares/validateCookie.middleware';
 import validateSchema from '@/middlewares/validateSchema.middleware';
@@ -15,11 +14,13 @@ router.use(validateAccessToken);
 
 router.get(ROUTES.USER.NUTRITION_TARGET, UserController.getNutritionTarget);
 router.get(ROUTES.USER.GET_NUTRI_BY_STATS, UserController.getCaloriesByStats);
-router.get(ROUTES.USER.GETSTAST, UserController.getPhysicalStats);
+router.get(ROUTES.USER.GET_STATS, UserController.getPhysicalStats);
+router.get(ROUTES.USER.GET_ME, UserController.getMe);
+
 router.put(
   ROUTES.USER.CHANGE_PASSWORD,
   validateSchema(updateUserPasswordSchema),
-  userController.updateUserPassword,
+  UserController.updateUserPassword,
 );
 router.put(
   ROUTES.USER.NUTRITION_TARGET,
@@ -27,7 +28,7 @@ router.put(
   UserController.updateNutritionTarget,
 );
 router.put(
-  ROUTES.USER.EDITSTAST,
+  ROUTES.USER.EDIT_STATS,
   validateSchema(physicalStatDto),
   UserController.updatePhysicalStats,
 );

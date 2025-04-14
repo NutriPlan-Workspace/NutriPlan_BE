@@ -5,10 +5,7 @@ import { ROUTES } from '@/constants/routes';
 import userController from '@/controllers/auth.controller';
 import validateSchema from '@/middlewares/validateSchema.middleware';
 import { createUserDto } from '@/schemas/user.schema';
-import {
-  loginSchemaValidate,
-  logoutSchemaValidate,
-} from '@/validations/auth.validates';
+import { loginSchemaValidate } from '@/validations/auth.validates';
 
 const router = Router();
 
@@ -18,11 +15,8 @@ router.post(
   userController.login,
 );
 
-router.post(
-  ROUTES.AUTH.LOGOUT,
-  validateAuth(logoutSchemaValidate),
-  userController.logout,
-);
+router.post(ROUTES.AUTH.LOGOUT, userController.logout);
+
 /**
  * @swagger
  * /auth/register:

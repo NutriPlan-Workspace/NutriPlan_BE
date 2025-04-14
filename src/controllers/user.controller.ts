@@ -3,16 +3,19 @@ import { Request, Response } from 'express';
 import { ERROR_MESSAGE } from '@/constants/messages';
 import { STATUS_CODE } from '@/constants/statusCodes';
 import userService from '@/services/user.service';
+import type { TokenPayload, User } from '@/types/user.types';
 import { hashPassword } from '@/utils/passwordHash';
 import {
   errorResponse,
   notFoundResponse,
+  serverError,
   successResponse,
 } from '@/utils/responseFormats';
 
 class UserController {
   constructor() {
     this.updateUserPassword = this.updateUserPassword.bind(this);
+    this.getMe = this.getMe.bind(this);
   }
 
   async updateUserPassword(req: Request, res: Response) {
@@ -224,6 +227,48 @@ class UserController {
           ),
         );
     }
+  }
+
+  async getMe(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(
+            errorResponse(
+              null,
+              ERROR_MESSAGE.USER.NOT_FOUND,
+              STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED,
+            ),
+          );
+        return;
+      }
+
+      const user = await userService.getUserById(userId);
+      if (!user) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
+          .json(notFoundResponse(ERROR_MESSAGE.USER.NOT_FOUND));
+        return;
+      }
+
+      const responseUser = this.formatUserResponse(user);
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(responseUser));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(serverError(error));
+    }
+  }
+
+  private formatUserResponse(user: User): TokenPayload {
+    return {
+      id: user._id as string,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+    };
   }
 }
 export default new UserController();

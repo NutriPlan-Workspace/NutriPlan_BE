@@ -41,7 +41,8 @@ class AuthService {
     await user.save();
 
     return {
-      accessToken: accessToken,
+      accessToken,
+      refreshToken,
       data: { payload },
     };
   }
