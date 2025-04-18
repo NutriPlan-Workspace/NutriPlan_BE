@@ -10,6 +10,7 @@ router.use(validateAccessToken);
 
 // TODO: NOT YET CREATE MIDDLEWARE HANDLE PARAMS AND BODY VALUE
 router.get(ROUTES.MEALPLAN.GET, mealPlanController.getMealPlan);
+router.get(ROUTES.MEALPLAN.GET_LATEST, mealPlanController.getLatestMealPlan);
 router.post(ROUTES.MEALPLAN.ADD, mealPlanController.addFoodToMealPlan);
 router.put(ROUTES.MEALPLAN.EDIT, mealPlanController.editDayMealPlan);
 router.delete(

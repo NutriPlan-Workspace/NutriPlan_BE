@@ -18,6 +18,10 @@ class MealPlanService {
     });
   }
 
+  async getLatestMealPlan(date: Date, userId: string) {
+    return await this.mealPlanRepository.getLatestMealPlan(date, userId);
+  }
+
   async getMealPlanByRange(from: Date, to: Date, userId: string) {
     return this.mealPlanRepository.getList({
       userId,

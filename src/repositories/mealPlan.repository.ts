@@ -14,7 +14,7 @@ export class MealPlanRepository extends BaseRepository<MealPlan> {
     path: `${mealPath}.foodId`,
     populate: {
       path: 'ingredients.ingredientFoodId',
-      select: 'name',
+      select: 'name units',
     },
   });
 
@@ -23,6 +23,21 @@ export class MealPlanRepository extends BaseRepository<MealPlan> {
       .populate(this.populateMeal('mealItems.breakfast'))
       .populate(this.populateMeal('mealItems.lunch'))
       .populate(this.populateMeal('mealItems.dinner'))
+      .exec();
+  }
+
+  async getLatestMealPlan(
+    date: Date,
+    userId: string,
+  ): Promise<MealPlan | null> {
+    return MealPlanModel.findOne({
+      userId,
+      mealDate: { $lte: date },
+    })
+      .populate(this.populateMeal('mealItems.breakfast'))
+      .populate(this.populateMeal('mealItems.lunch'))
+      .populate(this.populateMeal('mealItems.dinner'))
+      .sort({ mealDate: -1 })
       .exec();
   }
 }

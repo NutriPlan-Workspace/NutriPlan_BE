@@ -12,6 +12,7 @@ export const ROUTES = {
     PATH: '/planner',
     ADD: '/',
     GET: '/',
+    GET_LATEST: '/copy',
     EDIT: '/:id',
     DELETE: '/:id',
   },

@@ -140,6 +140,43 @@ class MealPlanController {
         );
     }
   }
+
+  async getLatestMealPlan(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const date = req.query?.date;
+      const mealDate = new Date(date as string);
+      const result = await mealPlanService.getLatestMealPlan(mealDate, userId!);
+      if (!result) {
+        res.status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND).json(notFoundResponse());
+        return;
+      }
+      const mealPlanDay = await mealPlanService.addFoodToMealPlan(
+        {
+          ...result,
+          mealDate: mealDate,
+          mealItems: result.mealItems,
+        },
+        userId!,
+      );
+      if (!mealPlanDay) {
+        res.status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND).json(notFoundResponse());
+        return;
+      }
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(mealPlanDay));
+      return;
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            error,
+            ERROR_MESSAGE.SERVER_ERROR,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  }
 }
 
 export default new MealPlanController();
