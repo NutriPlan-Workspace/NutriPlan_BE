@@ -23,6 +23,8 @@ export const ROUTES = {
     GET_STATS: '/stats',
     EDIT_STATS: '/stats',
     GET_NUTRI_BY_STATS: '/nutrition-by-stats',
+    GET_PRIMARY_DIET: '/primary-diet',
+    EDIT_PRIMARY_DIET: '/primary-diet',
     GET_ME: '/me',
   },
   COLLECTION: {

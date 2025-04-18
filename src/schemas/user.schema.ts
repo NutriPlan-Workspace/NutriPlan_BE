@@ -56,6 +56,10 @@ export const nutritionGoalsDto = z.object({
   goalType: z.nativeEnum(NutritionGoals).optional(),
 });
 
+export const primaryDietDto = z.object({
+  primaryDiet: z.nativeEnum(PrimaryDiet).optional(),
+});
+
 const excludedDto = z.object({
   categories: z.array(z.object({ categoryId: z.string().min(1) })).optional(),
   foods: z.array(z.object({ foodId: z.string().min(1) })).optional(),

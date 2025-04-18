@@ -164,6 +164,16 @@ class UserService {
       fatTarget,
     };
   }
+
+  async getPrimaryDiet(userId: string) {
+    const user = await this.repository.getById(userId);
+    return user?.primaryDiet ?? null;
+  }
+
+  async updatePrimaryDiet(userId: string, primaryDiet: string) {
+    const user = await this.repository.update(userId, { primaryDiet });
+    return user?.primaryDiet ?? null;
+  }
 }
 
 export default new UserService();
