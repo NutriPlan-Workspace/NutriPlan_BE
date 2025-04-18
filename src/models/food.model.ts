@@ -1,4 +1,4 @@
-import { model, Schema } from 'mongoose';
+import { model, PaginateModel, Schema } from 'mongoose';
 import MongooseDelete, { SoftDeleteModel } from 'mongoose-delete';
 import paginate from 'mongoose-paginate-v2';
 
@@ -172,4 +172,4 @@ FoodSchema.plugin(paginate);
 export const FoodModel = model<Food>(
   'Food',
   FoodSchema,
-) as SoftDeleteModel<Food>;
+) as SoftDeleteModel<Food> & PaginateModel<Food>;

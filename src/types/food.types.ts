@@ -148,3 +148,11 @@ export interface FoodWithIngredients {
   mainFood: Food;
   ingredientList: Food[];
 }
+
+export type Per100CaloriesFilters = {
+  minPer100CaloriesProteins?: number;
+  maxPer100CaloriesCarbs?: number;
+  maxPer100CaloriesFats?: number;
+  minPer100CaloriesFiber?: number;
+  maxPer100CaloriesSodium?: number;
+};

@@ -1,8 +1,11 @@
 import {
+  AggregateOptions,
   FilterQuery,
   PaginateModel,
   PaginateOptions,
   PaginateResult,
+  PipelineStage,
+  PopulateOptions,
   QueryOptions,
   UpdateQuery,
 } from 'mongoose';
@@ -23,12 +26,24 @@ export class BaseRepository<T extends SoftDeleteDocument> {
     query: FilterQuery<T> = {},
     projection?: Record<string, 0 | 1>,
     options?: { skip?: number; limit?: number },
+    populateOptions?:
+      | string
+      | PopulateOptions
+      | Array<string | PopulateOptions>,
   ): Promise<T[]> {
-    return this.model
-      .find(query, projection)
-      .skip(options?.skip ?? 0)
-      .limit(options?.limit ?? 10)
-      .exec();
+    let q = this.model.find(query, projection);
+
+    if (options?.skip !== undefined) q = q.skip(options.skip);
+    if (options?.limit !== undefined) q = q.limit(options.limit);
+
+    if (populateOptions) {
+      const normalizedPopulateOptions = Array.isArray(populateOptions)
+        ? populateOptions
+        : [populateOptions];
+      q = q.populate(normalizedPopulateOptions);
+    }
+
+    return q.exec();
   }
 
   getById(
@@ -64,5 +79,12 @@ export class BaseRepository<T extends SoftDeleteDocument> {
   async restoreById(id: string): Promise<T | null> {
     await this.model.restore({ _id: id });
     return this.model.findById(id).exec();
+  }
+
+  aggregate<R = T>(
+    pipeline: PipelineStage[],
+    options?: AggregateOptions,
+  ): Promise<R[]> {
+    return this.model.aggregate<R>(pipeline, options).exec();
   }
 }

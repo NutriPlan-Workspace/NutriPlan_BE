@@ -32,5 +32,11 @@ export const ROUTES = {
     PUT: '/:id',
     DELETE: '/:id',
   },
+  FOOD: {
+    PATH: '/foods',
+    GETLIST: '/',
+    GET_BY_ID: '/:id',
+    SEARCH: '/search',
+  },
   API_DOCS: '/api-docs',
 };

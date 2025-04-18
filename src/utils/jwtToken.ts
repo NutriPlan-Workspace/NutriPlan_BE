@@ -1,3 +1,4 @@
+import { Request } from 'express';
 import jwt, { SignOptions } from 'jsonwebtoken';
 
 import {
@@ -26,4 +27,15 @@ export const verifyAccessToken = (token: string): TokenPayload => {
 export const verifyRefreshToken = (token: string): TokenPayload => {
   const decoded = jwt.verify(token, REFRESH_SECRET) as TokenPayload;
   return decoded;
+};
+export const decodeAccessToken = (req: Request): TokenPayload | null => {
+  try {
+    const token = req.cookies.accessToken;
+    if (!token) return null;
+
+    const decoded = verifyAccessToken(token);
+    return decoded;
+  } catch {
+    return null;
+  }
 };

@@ -6,10 +6,10 @@ import { STATUS_CODE } from '@/constants/statusCodes';
 import { errorResponse } from '@/utils/responseFormats';
 
 const validateSchema =
-  (schema: AnyZodObject) =>
+  (schema: AnyZodObject, source: 'body' | 'query' | 'params' = 'body') =>
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      await schema.parseAsync(req.body);
+      await schema.parseAsync(req[source]);
       next();
     } catch (error) {
       if (error instanceof ZodError) {
@@ -45,5 +45,4 @@ const validateSchema =
       }
     }
   };
-
 export default validateSchema;

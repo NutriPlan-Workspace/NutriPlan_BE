@@ -9,7 +9,7 @@ import {
   collectionQuerySchema,
   CreateCollectionSchema,
   UpdateCollectionSchema,
-} from '@/schemas/collectionl.schema';
+} from '@/schemas/collection.schema';
 
 const router = Router();
 
@@ -17,7 +17,7 @@ router.use(validateAccessToken);
 
 router.get(
   ROUTES.COLLECTION.GET,
-  validateSchema(collectionQuerySchema),
+  validateSchema(collectionQuerySchema, 'query'),
   collectionController.getCollection,
 );
 router.get(

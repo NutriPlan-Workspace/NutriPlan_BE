@@ -1,4 +1,4 @@
-import { model, Schema } from 'mongoose';
+import { model, PaginateModel, Schema } from 'mongoose';
 import MongooseDelete, { SoftDeleteModel } from 'mongoose-delete';
 import paginate from 'mongoose-paginate-v2';
 
@@ -51,4 +51,4 @@ CollectionSchema.plugin(paginate);
 export const CollectionModel = model<Collection>(
   'Collection',
   CollectionSchema,
-) as SoftDeleteModel<Collection>;
+) as SoftDeleteModel<Collection> & PaginateModel<Collection>;

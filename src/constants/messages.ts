@@ -40,6 +40,10 @@ export const ERROR_MESSAGE = {
   FROM_LESS_THAN_TO: 'From must be less than To',
   INVALID_OBJECTID: 'Invalid ObjectId',
   INVALID_IMG_URL: 'Invalid image URL format',
+  INVALID_FILTERS: 'Filters must be an array containing only:',
+  INVALID_ALLSEARCH: 'allSearch must not be empty',
+  INVALID_PREFERRED_FOOD:
+    'preferredFoodTypes must be an array containing only:',
 };
 
 export const SUCCESS_MESSAGE = {
