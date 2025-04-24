@@ -44,7 +44,7 @@ export const forbiddenResponse = (
 });
 
 export const notFoundResponse = (
-  message = ERROR_MESSAGE.NOTFOUND,
+  message = ERROR_MESSAGE.NOT_FOUND,
   code = STATUS_CODE.CLIENT_ERROR.NOT_FOUND,
 ) => ({
   success: false,

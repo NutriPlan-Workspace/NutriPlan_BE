@@ -64,7 +64,7 @@ class AuthService {
   async createUser(userData: CreateUserDto): Promise<UserType> {
     userData.password = await hashPassword(userData.password);
     const user = new UserModel(userData);
-    const savedUser = await user.save();
+    const savedUser = (await user.save()) as UserType & { _id: string };
     createDefaultCollection(savedUser._id.toString());
     return savedUser;
   }
