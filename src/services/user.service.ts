@@ -1,5 +1,5 @@
 import { UserRepository } from '@/repositories/user.repository';
-import type { User } from '@/types';
+import { ActivityLevel, BodyFat, Gender, type User } from '@/types';
 import {
   calculateAge,
   calculateBMR,
@@ -41,7 +41,15 @@ class UserService {
       return null;
     }
 
-    user.physicalStat ||= {};
+    user.physicalStat ||= {
+      gender: Gender.MALE,
+      heightRecords: [],
+      weightRecords: [],
+      dateOfBirth: new Date(),
+      bodyFat: BodyFat.LOW,
+      activityLevel: ActivityLevel.SEDENTARY,
+      time: new Date(),
+    };
 
     user.physicalStat.heightRecords ||= [];
     user.physicalStat.weightRecords ||= [];
@@ -74,7 +82,7 @@ class UserService {
 
     Object.entries(physicalStats).forEach(([key, value]) => {
       if (!excludedKeys.includes(key) && value !== undefined) {
-        user.physicalStat[key] = value;
+        (user.physicalStat as Record<string, unknown>)[key] = value;
       }
     });
     await user.save();
@@ -173,6 +181,19 @@ class UserService {
   async updatePrimaryDiet(userId: string, primaryDiet: string) {
     const user = await this.repository.update(userId, { primaryDiet });
     return user?.primaryDiet ?? null;
+  }
+
+  async getFoodExclusions(userId: string) {
+    const user = await this.repository.getById(userId, { excluded: 1 });
+    return user?.excluded ?? null;
+  }
+
+  async updateFoodExclusions(
+    userId: string,
+    excluded: Partial<User['excluded']>,
+  ) {
+    const user = await this.repository.update(userId, { excluded });
+    return user?.excluded ?? null;
   }
 }
 

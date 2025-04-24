@@ -21,7 +21,7 @@ export interface User extends SoftDeleteDocument {
     time: Date;
   };
   excluded: {
-    categories: Schema.Types.ObjectId[];
+    categories: number[];
     foods: Schema.Types.ObjectId[];
   };
   nutritionGoals: {

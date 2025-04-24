@@ -1,4 +1,3 @@
-export * from './category.types';
 export * from './collection.types';
 export * from './expression.type';
 export * from './food.types';

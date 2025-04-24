@@ -152,16 +152,7 @@ const FoodSchema = new Schema<Food>(
     isRecipe: { type: Boolean, required: true },
     isCustom: { type: Boolean, required: true },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
-    categoryId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Category',
-      required: false,
-    },
-    secondaryCategoryId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Category',
-      required: false,
-    },
+    categories: [{ type: Number }],
   },
   { timestamps: true, autoCreate: true },
 );

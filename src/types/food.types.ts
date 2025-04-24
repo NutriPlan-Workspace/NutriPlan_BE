@@ -140,8 +140,7 @@ export interface Food extends SoftDeleteDocument {
   isRecipe: boolean;
   isCustom: boolean;
   userId: Schema.Types.ObjectId;
-  categoryId: Schema.Types.ObjectId;
-  secondaryCategoryId: Schema.Types.ObjectId;
+  categories: number[];
 }
 
 export interface FoodWithIngredients {

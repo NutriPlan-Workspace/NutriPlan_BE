@@ -46,7 +46,7 @@ const UserSchema = new Schema<User>(
     },
     excluded: {
       type: {
-        categories: [{ categoryId: { type: Schema.Types.ObjectId } }],
+        categories: [{ type: Number }],
         foods: [{ foodId: { type: Schema.Types.ObjectId } }],
       },
       required: false,

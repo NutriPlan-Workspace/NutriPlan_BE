@@ -5,6 +5,7 @@ import UserController from '@/controllers/user.controller';
 import { validateAccessToken } from '@/middlewares/validateCookie.middleware';
 import validateSchema from '@/middlewares/validateSchema.middleware';
 import {
+  excludedDto,
   primaryDietDto,
   updateUserPasswordSchema,
 } from '@/schemas/user.schema';
@@ -19,6 +20,7 @@ router.get(ROUTES.USER.NUTRITION_TARGET, UserController.getNutritionTarget);
 router.get(ROUTES.USER.GET_NUTRI_BY_STATS, UserController.getCaloriesByStats);
 router.get(ROUTES.USER.GET_STATS, UserController.getPhysicalStats);
 router.get(ROUTES.USER.GET_PRIMARY_DIET, UserController.getPrimaryDiet);
+router.get(ROUTES.USER.GET_FOOD_EXCLUSIONS, UserController.getFoodExclusions);
 router.get(ROUTES.USER.GET_ME, UserController.getMe);
 
 router.put(
@@ -40,6 +42,11 @@ router.put(
   ROUTES.USER.EDIT_PRIMARY_DIET,
   validateSchema(primaryDietDto),
   UserController.updatePrimaryDiet,
+);
+router.put(
+  ROUTES.USER.EDIT_FOOD_EXCLUSIONS,
+  validateSchema(excludedDto),
+  UserController.updateFoodExclusions,
 );
 
 export default router;
