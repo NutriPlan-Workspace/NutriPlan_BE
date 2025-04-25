@@ -1,8 +1,10 @@
-import { FilterQuery, UpdateQuery } from 'mongoose';
+import { FilterQuery, Types, UpdateQuery } from 'mongoose';
 
+import { CATEGORIES_BY_GROUP, EXCLUDED_BY_DIET } from '@/constants/category';
 import { isActiveFilter } from '@/constants/food';
 import { CollectionRepository } from '@/repositories/collection.repository';
 import { FoodRepository } from '@/repositories/food.repository';
+import { UserRepository } from '@/repositories/user.repository';
 import type { FoodFilterQuery } from '@/schemas/foodFilter.schema';
 import type {
   Collection,
@@ -21,10 +23,12 @@ import {
 export class FoodService {
   private repository: FoodRepository;
   private collectionRepository: CollectionRepository;
+  private userRepository: UserRepository;
 
   constructor() {
     this.repository = new FoodRepository();
     this.collectionRepository = new CollectionRepository();
+    this.userRepository = new UserRepository();
   }
 
   private extractUniqueFoods(collections: Collection[]): Food[] {
@@ -67,6 +71,38 @@ export class FoodService {
     return this.extractUniqueFoods(collections);
   }
 
+  private async getExcludedCategories(
+    decoded: TokenPayload,
+    excludedCategorySet: Set<number>,
+  ) {
+    const user = await this.userRepository.getById(decoded.id, {
+      excluded: 1,
+      primaryDiet: 1,
+    });
+
+    if (Array.isArray(user?.excluded?.categories)) {
+      user.excluded.categories.forEach((catId) =>
+        excludedCategorySet.add(catId),
+      );
+    }
+
+    if (user?.primaryDiet && user.primaryDiet in EXCLUDED_BY_DIET) {
+      const dietExcluded =
+        EXCLUDED_BY_DIET[user.primaryDiet as keyof typeof EXCLUDED_BY_DIET];
+
+      dietExcluded.forEach((mainItemId) => {
+        excludedCategorySet.add(mainItemId);
+
+        const group = CATEGORIES_BY_GROUP.find(
+          (group) => group.mainItem === mainItemId,
+        );
+        if (group) {
+          group.items.forEach((itemId) => excludedCategorySet.add(itemId));
+        }
+      });
+    }
+  }
+
   create(data: Partial<Food>): Promise<Food> {
     return this.repository.create(data);
   }
@@ -81,10 +117,21 @@ export class FoodService {
     if (q) {
       query.name = { $regex: q, $options: 'i' };
     }
+    if (decoded !== null) {
+      const excludedCategorySet = new Set<number>();
+
+      await this.getExcludedCategories(decoded, excludedCategorySet);
+      if (excludedCategorySet.size !== 0) {
+        const excludedCategoryArray = Array.from(excludedCategorySet);
+
+        if (excludedCategoryArray.length > 0) {
+          query.categories = { $nin: excludedCategoryArray };
+        }
+      }
+    }
 
     if (!allSearch) {
       const selectedFilter = filters[0];
-
       switch (selectedFilter) {
         case 'recipe':
           query.isRecipe = true;
@@ -92,10 +139,16 @@ export class FoodService {
         case 'customRecipe':
           query.isRecipe = true;
           query.isCustom = true;
+          if (decoded) {
+            query.userId = new Types.ObjectId(decoded.id);
+          }
           break;
         case 'customFood':
           query.isRecipe = false;
           query.isCustom = true;
+          if (decoded) {
+            query.userId = new Types.ObjectId(decoded.id);
+          }
           break;
         case 'basicFood':
           query['property.isBasicFood'] = true;
@@ -120,7 +173,6 @@ export class FoodService {
           };
         }
       }
-
       const filteredFoods = await this.repository.search(query);
       return {
         [selectedFilter]: {
@@ -129,17 +181,30 @@ export class FoodService {
         },
       };
     }
+    const userId = decoded ? new Types.ObjectId(decoded.id) : undefined;
 
     const [recipe, customRecipe, customFood, basicFood] = await Promise.all([
       this.repository.search({ ...query, isRecipe: true }),
-      this.repository.search({ ...query, isRecipe: true, isCustom: true }),
-      this.repository.search({ ...query, isRecipe: false, isCustom: true }),
-      this.repository.search({ ...query, 'property.isBasicFood': true }),
+      this.repository.search({
+        ...query,
+        isRecipe: true,
+        isCustom: true,
+        ...(userId ? { userId } : {}),
+      }),
+      this.repository.search({
+        ...query,
+        isRecipe: false,
+        isCustom: true,
+        ...(userId ? { userId } : {}),
+      }),
+      this.repository.search({
+        ...query,
+        'property.isBasicFood': true,
+      }),
     ]);
 
     let favorites: Food[] = [];
     let collectionFoods: Food[] = [];
-
     if (decoded) {
       const [fav, coll] = await Promise.all([
         this.getFavoriteFoods(decoded.id),
@@ -182,6 +247,7 @@ export class FoodService {
       preferredFoodTypes,
       searchCollections,
       collectionIds,
+      applyExclusions,
       minPer100CaloriesProteins,
       maxPer100CaloriesCarbs,
       maxPer100CaloriesFats,
@@ -208,7 +274,6 @@ export class FoodService {
       page,
     } = parseSchema;
 
-    // TODO: Refine this logic after complete exclusion and generate meal plan
     if (
       decoded !== null &&
       (searchCollections === true ||
@@ -261,6 +326,7 @@ export class FoodService {
 
     const activeFilters = (filters ?? []).filter(isActiveFilter);
     const orConditions: FilterQuery<Food>[] = [];
+    const userId = decoded ? new Types.ObjectId(decoded.id) : undefined;
 
     for (const filter of activeFilters) {
       switch (filter) {
@@ -271,10 +337,18 @@ export class FoodService {
           orConditions.push({ isRecipe: true, isCustom: false });
           break;
         case 'customRecipe':
-          orConditions.push({ isRecipe: true, isCustom: true });
+          orConditions.push({
+            isRecipe: true,
+            isCustom: true,
+            ...(userId ? { userId } : {}),
+          });
           break;
         case 'customFood':
-          orConditions.push({ isRecipe: false, isCustom: true });
+          orConditions.push({
+            isRecipe: false,
+            isCustom: true,
+            ...(userId ? { userId } : {}),
+          });
           break;
       }
     }
@@ -308,6 +382,20 @@ export class FoodService {
           maxPer100CaloriesSodium,
         }),
       );
+    }
+    if (applyExclusions && decoded !== null) {
+      const excludedCategorySet = new Set<number>();
+
+      await this.getExcludedCategories(decoded, excludedCategorySet);
+      if (excludedCategorySet.size === 0) return;
+      const excludedCategoryArray = Array.from(excludedCategorySet);
+      pipeline.push({
+        $match: {
+          categories: {
+            $not: { $elemMatch: { $in: excludedCategoryArray } },
+          },
+        },
+      });
     }
     const skip = ((page ?? 1) - 1) * (limit ?? 8);
     pipeline.push({ $skip: skip });
