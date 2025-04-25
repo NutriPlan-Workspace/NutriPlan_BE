@@ -13,6 +13,7 @@ export const ROUTES = {
     ADD: '/',
     GET: '/',
     GET_LATEST: '/copy',
+    GET_GROCERIES: '/groceries',
     EDIT: '/:id',
     DELETE: '/:id',
   },

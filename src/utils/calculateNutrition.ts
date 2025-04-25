@@ -1,4 +1,4 @@
-import { ActivityLevel, Gender } from '@/types';
+import { ActivityLevel, Gender, NutritionGoals } from '@/types';
 
 export const calculateBMR = (
   gender: Gender,
@@ -37,5 +37,18 @@ export const calculateTDEE = (bmr: number, activityLevel: ActivityLevel) => {
   return bmr * multiplier;
 };
 
-export const calculateAge = (date: Date) =>
-  new Date().getFullYear() - date.getFullYear();
+export const calculateAge = (date: Date) => {
+  const age = new Date().getFullYear() - date.getFullYear();
+  return age === 0 ? 1 : age;
+};
+
+export const applyGoalToTDEE = (tdee: number, goalType: NutritionGoals) => {
+  switch (goalType) {
+    case NutritionGoals.LOSE_FAT:
+      return Math.round(tdee * 0.8);
+    case NutritionGoals.MAINTAIN_WEIGHT:
+      return Math.round(tdee);
+    case NutritionGoals.BUILD_MUSCLE:
+      return Math.round(tdee * 1.15);
+  }
+};

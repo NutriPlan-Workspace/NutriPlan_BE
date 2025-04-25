@@ -1,6 +1,7 @@
 import { UserRepository } from '@/repositories/user.repository';
 import { ActivityLevel, BodyFat, Gender, type User } from '@/types';
 import {
+  applyGoalToTDEE,
   calculateAge,
   calculateBMR,
   calculateTDEE,
@@ -135,6 +136,7 @@ class UserService {
   } | null> {
     const user = await this.repository.getById(userId, {
       physicalStat: 1,
+      nutritionGoals: 1,
     });
 
     if (!user) return null;
@@ -148,8 +150,10 @@ class UserService {
     if (!latestHeight || !latestWeight) return null;
 
     const bmr = calculateBMR(sex, age, latestHeight, latestWeight);
-    const tdee = calculateTDEE(bmr, user.physicalStat.activityLevel);
-
+    let tdee = calculateTDEE(bmr, user.physicalStat.activityLevel);
+    if (user?.nutritionGoals?.goalType) {
+      tdee = applyGoalToTDEE(tdee, user.nutritionGoals.goalType);
+    }
     const proteinTarget = {
       from: Math.round((tdee * 0.1) / 4),
       to: Math.round((tdee * 0.35) / 4),

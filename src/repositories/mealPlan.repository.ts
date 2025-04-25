@@ -14,7 +14,7 @@ export class MealPlanRepository extends BaseRepository<MealPlan> {
     path: `${mealPath}.foodId`,
     populate: {
       path: 'ingredients.ingredientFoodId',
-      select: 'name units',
+      select: 'name units imgUrls nutrition',
     },
   });
 

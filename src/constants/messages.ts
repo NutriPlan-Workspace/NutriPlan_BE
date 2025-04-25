@@ -44,6 +44,8 @@ export const ERROR_MESSAGE = {
   INVALID_ALLSEARCH: 'allSearch must not be empty',
   INVALID_PREFERRED_FOOD:
     'preferredFoodTypes must be an array containing only:',
+  RANGE_TOO_LARGE: 'Day range must be less than 7 days',
+  INVALID_RANGE: 'Invalid day range',
 };
 
 export const SUCCESS_MESSAGE = {

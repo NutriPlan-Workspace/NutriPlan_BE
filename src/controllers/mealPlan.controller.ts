@@ -104,8 +104,56 @@ class MealPlanController {
         res.status(STATUS_CODE.SUCCESS.OK).json(emptyArrayResponse());
         return;
       }
-
       res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(result));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            error,
+            ERROR_MESSAGE.SERVER_ERROR,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  }
+
+  async getGroceries(req: Request, res: Response) {
+    try {
+      const date = req.query?.date;
+      const from = req.query?.from;
+      const to = req.query?.to;
+      const userId = req.user?.id;
+      let result;
+
+      if (date) {
+        result = await mealPlanService.getMealPlanByDate(
+          new Date(date as string),
+          userId!,
+        );
+      } else if (from && to) {
+        result = await mealPlanService.getMealPlanByRange(
+          new Date(from as string),
+          new Date(to as string),
+          userId!,
+        );
+      }
+      if (!result || (Array.isArray(result) && result.length === 0)) {
+        res.status(STATUS_CODE.SUCCESS.OK).json(emptyArrayResponse());
+        return;
+      }
+      const ingredients = await mealPlanService.getGroceries(
+        Array.isArray(result) ? result : [result],
+      );
+      if (
+        !ingredients ||
+        (Array.isArray(ingredients) && ingredients.length === 0)
+      ) {
+        res.status(STATUS_CODE.SUCCESS.OK).json(emptyArrayResponse());
+        return;
+      }
+
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(ingredients));
     } catch (error) {
       res
         .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)

@@ -67,6 +67,132 @@ class MealPlanService {
 
     return this.mealPlanRepository.delete(mealPlanId);
   }
+
+  async getGroceries(mealPlanData: MealPlan[]) {
+    const ingredientMap: Record<
+      string,
+      {
+        name: string;
+        totalAmount: number;
+        unit: {
+          description: string;
+          amount: number;
+          _id: string;
+        };
+        units: [];
+        nutrition: {
+          calories: number;
+          carbs: number;
+          fats: number;
+          proteins: number;
+          fiber: number;
+          sodium: number;
+          cholesterol: number;
+        };
+        ingredientId: string;
+        imgUrls: string[];
+        foodDetails: {
+          name: string;
+          date: string;
+          imgUrls: string[];
+          amount: number;
+          description: string;
+        }[];
+      }
+    > = {};
+
+    const mealTypes = ['breakfast', 'lunch', 'dinner'];
+
+    for (const plan of mealPlanData) {
+      if (!plan) continue;
+
+      const planDate = plan.mealDate;
+
+      for (const mealType of mealTypes) {
+        const mealItems = plan.mealItems[mealType] || [];
+
+        for (const item of mealItems) {
+          if (!item) continue;
+          const ingredients = item.foodId?.ingredients || [];
+          const check = item.unit === item.foodId.defaultUnit;
+
+          for (const ing of ingredients) {
+            const ingredient = ing.ingredientFoodId;
+
+            if (!ingredient) continue;
+
+            const key = ingredient._id.toString();
+            const unitIndex = ing.unit;
+            let ingredientAmount = ing.amount;
+
+            const unit = ingredient.units[unitIndex];
+            if (check) {
+              ingredientAmount =
+                (item.amount * ing.amount) /
+                item.foodId.units[item.foodId.defaultUnit].amount;
+            } else {
+              ingredientAmount =
+                (item.amount * ing.amount) /
+                item.foodId.units[item.unit].amount;
+            }
+            if (!ingredientMap[key]) {
+              ingredientMap[key] = {
+                name: ingredient.name,
+                totalAmount: ingredientAmount,
+                unit: unit,
+                ingredientId: ingredient._id,
+                imgUrls: ingredient.imgUrls || [],
+                units: ingredient.units,
+                nutrition: {
+                  calories: ingredient.nutrition.calories,
+                  carbs: ingredient.nutrition.carbs,
+                  fats: ingredient.nutrition?.fats || 0,
+                  proteins: ingredient.nutrition.proteins,
+                  fiber: ingredient.nutrition.fiber,
+                  sodium: ingredient.nutrition.sodium,
+                  cholesterol: ingredient.nutrition.cholesterol,
+                },
+                foodDetails: [
+                  {
+                    name: item.foodId.name,
+                    date: planDate,
+                    imgUrls: item.foodId.imgUrls,
+                    amount: ingredientAmount,
+                    description: ingredient.units[unitIndex].description,
+                  },
+                ],
+              };
+            } else {
+              if (ingredientMap[key].unit.description === unit?.description) {
+                ingredientMap[key].totalAmount += ingredientAmount;
+              } else {
+                ingredientMap[key].totalAmount +=
+                  (ingredientAmount * ingredientMap[key].unit.amount) /
+                  unit?.amount;
+              }
+              if (
+                !ingredientMap[key].foodDetails.some(
+                  (detail) =>
+                    detail.name === item.foodId.name &&
+                    detail.date === planDate,
+                )
+              ) {
+                ingredientMap[key].foodDetails.push({
+                  name: item.foodId.name,
+                  date: planDate,
+                  imgUrls: item.foodId.imgUrls,
+                  amount: ingredientAmount,
+                  description: ingredient.units[unitIndex].description,
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return Object.values(ingredientMap);
+  }
 }
 
 export default new MealPlanService();
