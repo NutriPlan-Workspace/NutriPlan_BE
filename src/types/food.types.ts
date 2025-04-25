@@ -129,7 +129,7 @@ export interface Food extends SoftDeleteDocument {
     amount: number;
     description: string;
   }[];
-  directions: string;
+  directions: string[];
   ingredients: {
     ingredientFoodId: Schema.Types.ObjectId;
     amount: number;

@@ -128,26 +128,32 @@ const FoodSchema = new Schema<Food>(
     nutrition: NutritionSchema,
     property: PropertySchema,
     videoUrl: { type: String, required: false },
-    defaultUnit: { type: Number, required: true },
-    units: [
-      {
-        amount: { type: Number, required: true },
-        description: { type: String, required: true },
-      },
-    ],
-    directions: [{ type: String, required: true }],
-    ingredients: [
-      {
-        ingredientFoodId: {
-          type: Schema.Types.ObjectId,
-          ref: 'Food',
-          required: true,
+    defaultUnit: { type: Number, default: 0 },
+    units: {
+      type: [
+        {
+          amount: { type: Number, default: 1 },
+          description: { type: String, default: 'serving' },
         },
-        amount: { type: Number, required: true },
-        unit: { type: Number, required: true },
-        preparation: { type: String, required: false },
-      },
-    ],
+      ],
+      default: [{ amount: 1, description: 'serving' }],
+    },
+    directions: { type: [String], required: false },
+    ingredients: {
+      type: [
+        {
+          ingredientFoodId: {
+            type: Schema.Types.ObjectId,
+            ref: 'Food',
+            required: true,
+          },
+          amount: { type: Number, required: true },
+          unit: { type: Number, required: true },
+          preparation: { type: String, required: false },
+        },
+      ],
+      required: false,
+    },
     description: { type: String, required: false },
     isRecipe: { type: Boolean, required: true },
     isCustom: { type: Boolean, required: true },

@@ -43,6 +43,9 @@ export const ROUTES = {
     GETLIST: '/',
     GET_BY_ID: '/:id',
     SEARCH: '/search',
+    CREATE: '/',
+    UPDATE: '/:id',
+    DELETE: '/:id',
   },
   API_DOCS: '/api-docs',
 };

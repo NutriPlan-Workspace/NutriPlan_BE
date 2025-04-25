@@ -1,17 +1,21 @@
-import { FilterQuery, Types, UpdateQuery } from 'mongoose';
+import { FilterQuery, ObjectId, Types, UpdateQuery } from 'mongoose';
 
 import { CATEGORIES_BY_GROUP, EXCLUDED_BY_DIET } from '@/constants/category';
 import { isActiveFilter } from '@/constants/food';
 import { CollectionRepository } from '@/repositories/collection.repository';
 import { FoodRepository } from '@/repositories/food.repository';
 import { UserRepository } from '@/repositories/user.repository';
+import { FoodInput } from '@/schemas/food.schema';
 import type { FoodFilterQuery } from '@/schemas/foodFilter.schema';
 import type {
   Collection,
   Food,
   FoodWithIngredients,
+  NutritionFields,
   TokenPayload,
 } from '@/types';
+import { UserRole } from '@/types';
+import { calculateTotalNutrition } from '@/utils/calculateTotalNutrition';
 import {
   addComputedNutritionFields,
   addNutritionRange,
@@ -39,6 +43,37 @@ export class FoodService {
       new Map(foods.map((f) => [String(f._id), f])).values(),
     );
     return uniqueFoods;
+  }
+
+  private prepareFoodData(
+    foodData: Partial<FoodInput>,
+    isRecipe: boolean,
+    isCustom: boolean,
+    userId?: string,
+    totalNutrition?: NutritionFields,
+  ): Partial<Food> {
+    const base: Partial<Food> = {
+      ...foodData,
+      userId: userId
+        ? (new Types.ObjectId(userId) as unknown as ObjectId)
+        : undefined,
+      ingredients: foodData.ingredients?.map((ingredient) => ({
+        ...ingredient,
+        ingredientFoodId: new Types.ObjectId(
+          ingredient.ingredientFoodId,
+        ) as unknown as ObjectId,
+        preparation: ingredient.preparation ?? '',
+      })),
+      directions: foodData.directions?.map((item) => item.step),
+      isRecipe,
+      isCustom,
+    };
+
+    if (totalNutrition) {
+      base.nutrition = totalNutrition;
+    }
+
+    return base;
   }
 
   private async getFoodsFromCollections(collectionIds: string[]) {
@@ -103,8 +138,54 @@ export class FoodService {
     }
   }
 
-  create(data: Partial<Food>): Promise<Food> {
-    return this.repository.create(data);
+  private async createFoodWithIngredients(
+    foodData: Partial<FoodInput>,
+    isRecipe: boolean,
+    isCustom: boolean,
+    userId?: string,
+  ) {
+    const ingredientIds = foodData.ingredients?.map(
+      (ingredient) => ingredient.ingredientFoodId,
+    );
+
+    if (!ingredientIds || ingredientIds.length === 0) {
+      return null;
+    }
+
+    const ingredientsData = await this.repository.getByIds(ingredientIds);
+    const totalNutrition = calculateTotalNutrition(ingredientsData);
+
+    const preparedFoodData = this.prepareFoodData(
+      foodData,
+      isRecipe,
+      isCustom,
+      userId,
+      totalNutrition,
+    );
+    const newFood = await this.repository.create(preparedFoodData);
+    return newFood;
+  }
+
+  async createCustomFood(foodData: Partial<FoodInput>, userId: string) {
+    const preparedFoodData = this.prepareFoodData(
+      foodData,
+      false,
+      true,
+      userId,
+    );
+    const newCustomFood = await this.repository.create(preparedFoodData);
+    return newCustomFood;
+  }
+
+  async createCustomRecipe(
+    foodData: Partial<FoodInput>,
+    userId: string,
+  ): Promise<Food | null> {
+    return this.createFoodWithIngredients(foodData, true, true, userId);
+  }
+
+  async create(foodData: Partial<FoodInput>): Promise<Food | null> {
+    return this.createFoodWithIngredients(foodData, false, false);
   }
 
   async searchFood(
@@ -404,11 +485,49 @@ export class FoodService {
     return result;
   }
 
-  update(id: string, data: UpdateQuery<Food>): Promise<Food | null> {
-    return this.repository.update(id, data);
+  private async checkAccessPermission(
+    id: string,
+    user: TokenPayload,
+  ): Promise<Food | null> {
+    const food = await this.repository.getById(id);
+    if (!food) {
+      return null;
+    }
+    const isOwner = food.userId?.toString() === user.id;
+    const isAdmin = user.role === UserRole.ADMIN;
+    if (!isOwner && !isAdmin) {
+      return null;
+    }
+    return food;
   }
 
-  delete(id: string): Promise<{ deletedCount: number }> {
+  async update(
+    id: string,
+    user: TokenPayload,
+    data: UpdateQuery<Food>,
+  ): Promise<Food | null> {
+    const food = await this.checkAccessPermission(id, user);
+
+    if (!food) {
+      return null;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { isRecipe, isCustom, ...filteredData } = data;
+
+    return await this.repository.update(id, filteredData);
+  }
+
+  async delete(
+    id: string,
+    user: TokenPayload,
+  ): Promise<{ deletedCount: number } | null> {
+    const food = await this.checkAccessPermission(id, user);
+
+    if (!food) {
+      return null;
+    }
+
     return this.repository.delete(id);
   }
 

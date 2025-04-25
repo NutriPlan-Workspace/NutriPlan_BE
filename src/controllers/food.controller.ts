@@ -2,9 +2,11 @@ import { Request, Response } from 'express';
 
 import { ERROR_MESSAGE, SUCCESS_MESSAGE } from '@/constants/messages';
 import { STATUS_CODE } from '@/constants/statusCodes';
+import { FoodSchema, FoodUpdateSchema } from '@/schemas/food.schema';
 import { FoodFilterSchema } from '@/schemas/foodFilter.schema';
 import { searchFoodSchema } from '@/schemas/searchFood.schema';
 import { FoodService } from '@/services/food.service';
+import { checkAdminPermission } from '@/utils/checkAdminPermission';
 import { decodeAccessToken } from '@/utils/jwtToken';
 import {
   errorResponse,
@@ -126,6 +128,118 @@ class FoodController {
           errorResponse(
             error,
             ERROR_MESSAGE.ERROR,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  };
+
+  createFood = async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const userRole = req.user?.role;
+      const { type, ...foodData } = FoodSchema.parse(req.body);
+      let result;
+
+      switch (type) {
+        case 'customFood':
+          result = await this.foodService.createCustomFood(foodData, userId!);
+          break;
+        case 'customRecipe':
+          result = await this.foodService.createCustomRecipe(foodData, userId!);
+          break;
+        case 'create': {
+          if (!checkAdminPermission(userRole!, res)) {
+            return;
+          }
+          result = await this.foodService.create(foodData);
+          break;
+        }
+        default:
+          throw new Error(ERROR_MESSAGE.INVALID_TYPE);
+      }
+      if (!result) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.BAD_REQUEST)
+          .json(
+            errorResponse(
+              null,
+              ERROR_MESSAGE.INGREDIENTS_REQUIRED,
+              STATUS_CODE.CLIENT_ERROR.BAD_REQUEST,
+            ),
+          );
+        return;
+      }
+      res.status(STATUS_CODE.SUCCESS.CREATED).json(successResponse(result));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            null,
+            `${ERROR_MESSAGE.ERROR} ${error}`,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  };
+
+  updateFood = async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      const user = req.user;
+      const updatedFood = FoodUpdateSchema.parse(req.body);
+      const result = await this.foodService.update(id, user!, updatedFood);
+      if (!result) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(
+            errorResponse(
+              null,
+              ERROR_MESSAGE.AUTH_ERROR,
+              STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED,
+            ),
+          );
+        return;
+      }
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(result));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            null,
+            `${ERROR_MESSAGE.ERROR} ${error}`,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  };
+
+  deleteFood = async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      const result = await this.foodService.delete(id, req.user!);
+      if (!result) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(
+            errorResponse(
+              null,
+              ERROR_MESSAGE.AUTH_ERROR,
+              STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED,
+            ),
+          );
+        return;
+      }
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(result));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            null,
+            `${ERROR_MESSAGE.ERROR} ${error}`,
             STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
           ),
         );

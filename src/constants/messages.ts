@@ -46,6 +46,12 @@ export const ERROR_MESSAGE = {
     'preferredFoodTypes must be an array containing only:',
   RANGE_TOO_LARGE: 'Day range must be less than 7 days',
   INVALID_RANGE: 'Invalid day range',
+  NAME_REQUIRED: 'Name is required',
+  INVALID_IMAGE_URL: 'Each image URL must be a valid URL',
+  INVALID_VIDEO_URL: 'Video URL must be a valid URL',
+  INVALID_TYPE:
+    'Invalid type. Allowed values are customFood, customRecipe, or create.',
+  INGREDIENTS_REQUIRED: 'Ingredients are required to create a custom recipe.',
 };
 
 export const SUCCESS_MESSAGE = {
