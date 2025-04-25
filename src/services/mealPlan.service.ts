@@ -1,7 +1,7 @@
 import { Schema, Types } from 'mongoose';
 
 import { MealPlanRepository } from '@/repositories/mealPlan.repository';
-import type { MealPlan } from '@/types';
+import type { MealPlan, PopulatedMealPlanIngre } from '@/types';
 import { getWeekRange } from '@/utils/date';
 
 class MealPlanService {
@@ -12,7 +12,7 @@ class MealPlanService {
   }
 
   async getMealPlanByDate(date: Date, userId: string) {
-    return await this.mealPlanRepository.getList({
+    return await this.mealPlanRepository.getListPopulate({
       userId,
       mealDate: date,
     });
@@ -23,7 +23,7 @@ class MealPlanService {
   }
 
   async getMealPlanByRange(from: Date, to: Date, userId: string) {
-    return this.mealPlanRepository.getList({
+    return this.mealPlanRepository.getListPopulate({
       userId,
       mealDate: { $gte: from, $lte: to },
     });
@@ -31,7 +31,7 @@ class MealPlanService {
 
   async getMealPlanByWeek(date: Date, userId: string) {
     const { startOfWeek, endOfWeek } = getWeekRange(new Date(date));
-    return this.mealPlanRepository.getList({
+    return this.mealPlanRepository.getListPopulate({
       userId,
       mealDate: { $gte: startOfWeek, $lte: endOfWeek },
     });
@@ -68,7 +68,7 @@ class MealPlanService {
     return this.mealPlanRepository.delete(mealPlanId);
   }
 
-  async getGroceries(mealPlanData: MealPlan[]) {
+  async getGroceries(mealPlanData: PopulatedMealPlanIngre[]) {
     const ingredientMap: Record<
       string,
       {
@@ -77,9 +77,9 @@ class MealPlanService {
         unit: {
           description: string;
           amount: number;
-          _id: string;
+          // _id: string;
         };
-        units: [];
+        units: { amount: number; description: string }[];
         nutrition: {
           calories: number;
           carbs: number;
@@ -101,7 +101,7 @@ class MealPlanService {
       }
     > = {};
 
-    const mealTypes = ['breakfast', 'lunch', 'dinner'];
+    const mealTypes = ['breakfast', 'lunch', 'dinner'] as const;
 
     for (const plan of mealPlanData) {
       if (!plan) continue;
@@ -140,13 +140,13 @@ class MealPlanService {
                 name: ingredient.name,
                 totalAmount: ingredientAmount,
                 unit: unit,
-                ingredientId: ingredient._id,
+                ingredientId: ingredient._id.toString(),
                 imgUrls: ingredient.imgUrls || [],
                 units: ingredient.units,
                 nutrition: {
                   calories: ingredient.nutrition.calories,
                   carbs: ingredient.nutrition.carbs,
-                  fats: ingredient.nutrition?.fats || 0,
+                  fats: ingredient.nutrition?.fat || 0,
                   proteins: ingredient.nutrition.proteins,
                   fiber: ingredient.nutrition.fiber,
                   sodium: ingredient.nutrition.sodium,
@@ -155,7 +155,7 @@ class MealPlanService {
                 foodDetails: [
                   {
                     name: item.foodId.name,
-                    date: planDate,
+                    date: planDate.toISOString(),
                     imgUrls: item.foodId.imgUrls,
                     amount: ingredientAmount,
                     description: ingredient.units[unitIndex].description,
@@ -174,12 +174,12 @@ class MealPlanService {
                 !ingredientMap[key].foodDetails.some(
                   (detail) =>
                     detail.name === item.foodId.name &&
-                    detail.date === planDate,
+                    detail.date === planDate.toISOString().split('T')[0],
                 )
               ) {
                 ingredientMap[key].foodDetails.push({
                   name: item.foodId.name,
-                  date: planDate,
+                  date: planDate.toISOString(),
                   imgUrls: item.foodId.imgUrls,
                   amount: ingredientAmount,
                   description: ingredient.units[unitIndex].description,

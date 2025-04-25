@@ -1,7 +1,7 @@
 import { FilterQuery } from 'mongoose';
 
 import { MealPlanModel } from '@/models/mealPlan.model';
-import type { MealPlan } from '@/types';
+import type { MealPlan, PopulatedMealPlanIngre } from '@/types';
 
 import { BaseRepository } from './base.repository';
 
@@ -14,16 +14,20 @@ export class MealPlanRepository extends BaseRepository<MealPlan> {
     path: `${mealPath}.foodId`,
     populate: {
       path: 'ingredients.ingredientFoodId',
-      select: 'name units imgUrls nutrition',
+      select: '_id name units imgUrls nutrition amount ',
     },
   });
 
-  async getList(query: FilterQuery<MealPlan> = {}): Promise<MealPlan[]> {
-    return MealPlanModel.find(query)
+  async getListPopulate(
+    query: FilterQuery<MealPlan> = {},
+  ): Promise<PopulatedMealPlanIngre[]> {
+    const result = await MealPlanModel.find(query)
       .populate(this.populateMeal('mealItems.breakfast'))
       .populate(this.populateMeal('mealItems.lunch'))
       .populate(this.populateMeal('mealItems.dinner'))
       .exec();
+
+    return result as unknown as PopulatedMealPlanIngre[];
   }
 
   async getLatestMealPlan(

@@ -1,4 +1,4 @@
-import { Schema } from 'mongoose';
+import { Schema, Types } from 'mongoose';
 import { SoftDeleteDocument } from 'mongoose-delete';
 
 export interface NutritionFields {
@@ -155,3 +155,40 @@ export type Per100CaloriesFilters = {
   minPer100CaloriesFiber?: number;
   maxPer100CaloriesSodium?: number;
 };
+
+export interface FoodWithId extends SoftDeleteDocument {
+  _id: Types.ObjectId;
+  name: string;
+  imgUrls: string[];
+  nutrition: NutritionFields;
+  property: PropertyFields;
+  videoUrl: string;
+  defaultUnit: number;
+  units: {
+    amount: number;
+    description: string;
+  }[];
+  directions: string[];
+  ingredients: {
+    ingredientFoodId: Schema.Types.ObjectId;
+    amount: number;
+    unit: number;
+    preparation: string;
+  }[];
+  description: string;
+  isRecipe: boolean;
+  isCustom: boolean;
+  userId: Schema.Types.ObjectId;
+  categories: number[];
+}
+
+export interface PopulatedIngredientFood {
+  ingredientFoodId: FoodWithId;
+  amount: number;
+  unit: number;
+  preparation: string;
+}
+
+export interface PopulatedFood extends Omit<Food, 'ingredients'> {
+  ingredients: PopulatedIngredientFood[];
+}

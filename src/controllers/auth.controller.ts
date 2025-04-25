@@ -33,9 +33,15 @@ class AuthController {
         const accessToken = result.accessToken;
         const refreshToken = result.refreshToken;
         const payload = result.data.payload;
-        res.cookie('accessToken', accessToken, { httpOnly: true });
+        res.cookie('accessToken', accessToken, {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'none',
+        });
         res.cookie('refreshToken', refreshToken, {
           httpOnly: true,
+          secure: true,
+          sameSite: 'none',
         });
         res
           .status(STATUS_CODE.SUCCESS.OK)
