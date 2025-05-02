@@ -16,6 +16,7 @@ export const ROUTES = {
     GET_GROCERIES: '/groceries',
     EDIT: '/:id',
     DELETE: '/:id',
+    AUTO_GENERATE: '/auto-generate',
   },
   USER: {
     PATH: '/user',

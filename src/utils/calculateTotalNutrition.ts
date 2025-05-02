@@ -17,7 +17,7 @@ export const calculateTotalNutrition = (
     },
     {
       carbs: 0,
-      fat: 0,
+      fats: 0,
       proteins: 0,
       calories: 0,
       netCarbs: 0,

@@ -9,6 +9,52 @@ import {
 } from '@/utils/jwtToken';
 import { forbiddenResponse, unauthResponse } from '@/utils/responseFormats';
 
+export const parseUserIfExists = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const accessToken = req.cookies.accessToken;
+    if (!accessToken) {
+      return next();
+    }
+
+    const decoded = verifyAccessToken(accessToken);
+    req.user = decoded;
+    return next();
+  } catch {
+    try {
+      const refreshToken = req.cookies.refreshToken;
+      if (!refreshToken) {
+        return next();
+      }
+
+      const decodedRefresh = verifyRefreshToken(refreshToken);
+      if (!decodedRefresh) {
+        return next();
+      }
+
+      const payload = {
+        id: decodedRefresh.id,
+        email: decodedRefresh.email,
+        fullName: decodedRefresh.fullName,
+        role: decodedRefresh.role,
+      };
+      const newAccessToken = generateAccessToken(payload);
+
+      res.cookie('accessToken', newAccessToken, {
+        httpOnly: true,
+      });
+
+      req.user = decodedRefresh;
+      return next();
+    } catch {
+      return next();
+    }
+  }
+};
+
 export const validateAccessToken = async (
   req: Request,
   res: Response,

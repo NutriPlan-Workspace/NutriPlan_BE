@@ -66,7 +66,6 @@ class FoodController {
       const parseSchema = FoodFilterSchema.parse(req.query);
       const decoded = decodeAccessToken(req);
       const result = await this.foodService.getList(parseSchema, decoded);
-
       if (!result) {
         res
           .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)

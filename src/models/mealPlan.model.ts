@@ -9,7 +9,6 @@ const MealPlanSchema = new Schema<MealPlan>(
     userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
     },
     mealDate: {
       type: Date,

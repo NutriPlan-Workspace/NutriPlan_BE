@@ -468,15 +468,17 @@ export class FoodService {
       const excludedCategorySet = new Set<number>();
 
       await this.getExcludedCategories(decoded, excludedCategorySet);
-      if (excludedCategorySet.size === 0) return;
-      const excludedCategoryArray = Array.from(excludedCategorySet);
-      pipeline.push({
-        $match: {
-          categories: {
-            $not: { $elemMatch: { $in: excludedCategoryArray } },
+      if (excludedCategorySet.size !== 0) {
+        const excludedCategoryArray = Array.from(excludedCategorySet);
+        pipeline.push({
+          $match: {
+            categories: {
+              $not: { $elemMatch: { $in: excludedCategoryArray } },
+            },
           },
-        },
-      });
+        });
+      }
+      console.log(excludedCategorySet);
     }
     const skip = ((page ?? 1) - 1) * (limit ?? 8);
     pipeline.push({ $skip: skip });

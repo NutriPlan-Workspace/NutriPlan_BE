@@ -6,7 +6,7 @@ import { ERROR_MESSAGE } from '@/constants/messages';
 const NutritionSchema = z
   .object({
     carbs: z.number().default(0),
-    fat: z.number().default(0),
+    fats: z.number().default(0),
     proteins: z.number().default(0),
     calories: z.number().default(0),
     netCarbs: z.number().default(0),

@@ -1,9 +1,24 @@
 import { Schema } from 'mongoose';
 import { SoftDeleteDocument } from 'mongoose-delete';
 
-interface Range {
+export interface Range {
   from: number;
   to: number;
+}
+
+export interface NutritionGoalsType {
+  calories: number;
+  proteinTarget: Range;
+  carbTarget: Range;
+  fatTarget: Range;
+}
+
+export interface ExtendedNutritionGoals extends NutritionGoalsType {
+  title: string;
+  minimumFiber: number;
+  maxiumSodium: number;
+  maxiumCholesterol: number;
+  goalType: NutritionGoals;
 }
 
 export interface User extends SoftDeleteDocument {
@@ -24,17 +39,7 @@ export interface User extends SoftDeleteDocument {
     categories: number[];
     foods: Schema.Types.ObjectId[];
   };
-  nutritionGoals: {
-    title: string;
-    calories: number;
-    proteinTarget: Range;
-    carbTarget: Range;
-    fatTarget: Range;
-    minimumFiber: number;
-    maxiumSodium: number;
-    maxiumCholesterol: number;
-    goalType: NutritionGoals;
-  };
+  nutritionGoals: ExtendedNutritionGoals;
   refreshToken: string;
   primaryDiet: PrimaryDiet;
   role: UserRole;

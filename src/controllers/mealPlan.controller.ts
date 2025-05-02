@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 
 import { ERROR_MESSAGE } from '@/constants/messages';
 import { STATUS_CODE } from '@/constants/statusCodes';
+import { autoGenerateMealPlanSchema } from '@/schemas/mealPlan.schema';
 import mealPlanService from '@/services/mealPlan.service';
 import {
   emptyArrayResponse,
@@ -213,6 +214,52 @@ class MealPlanController {
       }
       res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(mealPlanDay));
       return;
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            error,
+            ERROR_MESSAGE.SERVER_ERROR,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  }
+
+  async autoGenerateMealPlan(req: Request, res: Response) {
+    try {
+      const parsedData = autoGenerateMealPlanSchema.parse(req.body);
+      const { date, preferences } = parsedData;
+      const mealDate = date ? new Date(date) : new Date();
+
+      const userId = req.user?.id;
+      let result;
+
+      if (userId) {
+        result = await mealPlanService.autoGenerateMealPlanForUser(
+          mealDate,
+          userId,
+        );
+      } else {
+        if (!preferences) {
+          res
+            .status(STATUS_CODE.CLIENT_ERROR.BAD_REQUEST)
+            .json(errorResponse('Preferences are required for demo users'));
+          return;
+        }
+        result = await mealPlanService.autoGenerateMealPlanForDemo(
+          mealDate,
+          preferences,
+        );
+      }
+
+      if (!result) {
+        res.status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND).json(notFoundResponse());
+        return;
+      }
+
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(result));
     } catch (error) {
       res
         .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)

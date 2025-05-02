@@ -3,7 +3,7 @@ import { SoftDeleteDocument } from 'mongoose-delete';
 
 export interface NutritionFields {
   carbs: number;
-  fat: number;
+  fats: number;
   proteins: number;
   calories: number;
   netCarbs: number;
