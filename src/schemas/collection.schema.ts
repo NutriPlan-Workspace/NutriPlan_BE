@@ -25,3 +25,14 @@ export const collectionQuerySchema = PaginationSchema.extend({
 });
 
 export const UpdateCollectionSchema = CreateCollectionSchema.partial();
+
+export const UpdateFavoriteListSchema = z.object({
+  foods: z
+    .array(
+      z.object({
+        food: ObjectIdSchema,
+        date: z.coerce.date().optional(),
+      }),
+    )
+    .optional(),
+});

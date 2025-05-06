@@ -37,6 +37,8 @@ export const ROUTES = {
     POST: '/',
     PUT: '/:id',
     DELETE: '/:id',
+    GET_FAVORITES: '/favorites',
+    UPDATE_FAVORITES: '/favorites',
   },
   FOOD: {
     PATH: '/foods',

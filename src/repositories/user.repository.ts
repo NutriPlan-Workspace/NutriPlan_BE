@@ -1,5 +1,5 @@
 import { UserModel } from '@/models';
-import type { User } from '@/types';
+import { ActivityLevel, BodyFat, Gender, type User } from '@/types';
 
 import { BaseRepository } from './base.repository';
 
@@ -10,9 +10,17 @@ export class UserRepository extends BaseRepository<User> {
 
   async getPhysicalStats(userId: string) {
     const user = await this.getById(userId);
-    return user ? user.physicalStat : null;
+    return user?.physicalStat
+      ? user.physicalStat
+      : {
+          gender: Gender.MALE,
+          heightRecords: [],
+          weightRecords: [],
+          dateOfBirth: new Date(),
+          bodyFat: BodyFat.LOW,
+          activityLevel: ActivityLevel.SEDENTARY,
+        };
   }
-
   async updatePhysicalStats(
     userId: string,
     physicalStats: Partial<User['physicalStat']>,

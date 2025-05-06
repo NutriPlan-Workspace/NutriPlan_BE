@@ -9,6 +9,7 @@ import {
   collectionQuerySchema,
   CreateCollectionSchema,
   UpdateCollectionSchema,
+  UpdateFavoriteListSchema,
 } from '@/schemas/collection.schema';
 
 const router = Router();
@@ -21,6 +22,10 @@ router.get(
   collectionController.getCollection,
 );
 router.get(
+  ROUTES.COLLECTION.GET_FAVORITES,
+  collectionController.getFavoriteFoods,
+);
+router.get(
   ROUTES.COLLECTION.GET_BY_ID,
   validateObjectId,
   collectionController.getCollectionById,
@@ -29,6 +34,11 @@ router.post(
   ROUTES.COLLECTION.POST,
   validateSchema(CreateCollectionSchema),
   collectionController.createCollection,
+);
+router.put(
+  ROUTES.COLLECTION.UPDATE_FAVORITES,
+  validateSchema(UpdateFavoriteListSchema),
+  collectionController.updateFavoriteFoods,
 );
 router.put(
   ROUTES.COLLECTION.PUT,

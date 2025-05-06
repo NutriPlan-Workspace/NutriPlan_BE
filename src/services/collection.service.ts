@@ -51,6 +51,30 @@ export class CollectionService {
       { skip: (page - 1) * limit, limit },
     );
   }
+
+  async getFavoriteFoods(userId: string) {
+    const query: FilterQuery<Collection> = { userId, isFavorites: true };
+    return this.repository.getList(query, {});
+  }
+
+  async updateFavoriteFood(
+    userId: string,
+    data: Partial<Collection>,
+  ): Promise<Collection | null> {
+    const favoriteCollection = await this.getFavoriteFoods(userId);
+    const collection = favoriteCollection[0];
+    if (!collection?._id) {
+      return null;
+    }
+    const updated = await this.repository.update(
+      collection._id.toString(),
+      data,
+      {},
+      { new: true },
+    );
+
+    return updated;
+  }
 }
 
 export default new CollectionService();
