@@ -62,37 +62,21 @@ class AuthController {
 
   async logout(req: Request, res: Response) {
     try {
-      const accessToken = req.cookies.accessToken;
-      if (!accessToken) {
-        res
-          .status(STATUS_CODE.CLIENT_ERROR.BAD_REQUEST)
-          .json(
-            errorResponse(
-              null,
-              ERROR_MESSAGE.NO_TOKEN_PROVIDED,
-              STATUS_CODE.CLIENT_ERROR.BAD_REQUEST,
-            ),
-          );
-      } else {
-        const result = await userService.logoutHandler(accessToken);
-        if (!result) {
-          res
-            .status(STATUS_CODE.CLIENT_ERROR.BAD_REQUEST)
-            .json(
-              errorResponse(
-                null,
-                ERROR_MESSAGE.INVALID_LOGOUT,
-                STATUS_CODE.CLIENT_ERROR.BAD_REQUEST,
-              ),
-            );
-        } else {
-          res.clearCookie('accessToken');
-          res.clearCookie('refreshToken');
-          res
-            .status(STATUS_CODE.SUCCESS.OK)
-            .json(successResponse(null, SUCCESS_MESSAGE.LOGOUT_SUCCESS));
-        }
-      }
+      res.clearCookie('accessToken', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        path: '/',
+      });
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        path: '/',
+      });
+      res
+        .status(STATUS_CODE.SUCCESS.OK)
+        .json(successResponse(null, SUCCESS_MESSAGE.LOGOUT_SUCCESS));
     } catch (error) {
       res
         .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
