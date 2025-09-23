@@ -5,8 +5,8 @@
   "main": "app.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/src/app.js",
+    "build": "tsc && tsc-alias && tsc-esm-fix",
+    "start": "node dist/app.js",
     "dev": "nodemon --exec tsx src/app.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky install",
@@ -60,6 +60,8 @@
     "prettier": "^3.5.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "tsc-alias": "^1.8.16",
+    "tsc-esm-fix": "^3.1.2",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.24.1"
