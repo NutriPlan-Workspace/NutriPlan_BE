@@ -312,6 +312,11 @@ export class FoodService {
     const mainFood = await this.repository.getById(id);
     if (!mainFood) return null;
 
+    // Ensure API always returns categories (legacy docs may not have the field)
+    if (!Array.isArray(mainFood.categories)) {
+      mainFood.categories = [];
+    }
+
     const ingredientFoodIds = mainFood.ingredients.map(({ ingredientFoodId }) =>
       ingredientFoodId.toString(),
     );
@@ -445,6 +450,17 @@ export class FoodService {
 
     pipeline.push({ $match: finalMatchStage });
 
+    // Always include categories + ingredients arrays, even for legacy docs
+    pipeline.push({
+      $addFields: {
+        categories: { $ifNull: ['$categories', []] },
+        ingredients: { $ifNull: ['$ingredients', []] },
+      },
+    });
+
+    const applyExclusionsFlag =
+      applyExclusions === undefined ? true : applyExclusions;
+
     const hasComputedFilters =
       minPer100CaloriesProteins !== undefined ||
       maxPer100CaloriesCarbs !== undefined ||
@@ -464,7 +480,7 @@ export class FoodService {
         }),
       );
     }
-    if (applyExclusions && decoded !== null) {
+    if (applyExclusionsFlag && decoded !== null) {
       const excludedCategorySet = new Set<number>();
 
       await this.getExcludedCategories(decoded, excludedCategorySet);
@@ -478,8 +494,80 @@ export class FoodService {
           },
         });
       }
-      console.log(excludedCategorySet);
     }
+
+    // Populate ingredientFoodId (name/_id) into ingredients for list views
+    pipeline.push({
+      $lookup: {
+        from: 'foods',
+        let: {
+          ingredientIds: { $ifNull: ['$ingredients.ingredientFoodId', []] },
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $in: [
+                  { $toString: '$_id' },
+                  {
+                    $map: {
+                      input: { $ifNull: ['$$ingredientIds', []] },
+                      as: 'id',
+                      in: { $toString: '$$id' },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          { $project: { _id: 1, name: 1 } },
+        ],
+        as: '_ingredientFoods',
+      },
+    });
+
+    pipeline.push({
+      $addFields: {
+        ingredients: {
+          $map: {
+            input: '$ingredients',
+            as: 'ing',
+            in: {
+              _id: '$$ing._id',
+              amount: '$$ing.amount',
+              unit: '$$ing.unit',
+              preparation: '$$ing.preparation',
+              ingredientFoodId: {
+                $let: {
+                  vars: {
+                    hit: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: '$_ingredientFoods',
+                            as: 'f',
+                            cond: {
+                              $eq: [
+                                { $toString: '$$f._id' },
+                                { $toString: '$$ing.ingredientFoodId' },
+                              ],
+                            },
+                          },
+                        },
+                        0,
+                      ],
+                    },
+                  },
+                  in: '$$hit',
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    pipeline.push({ $project: { _ingredientFoods: 0 } });
     const skip = ((page ?? 1) - 1) * (limit ?? 8);
     pipeline.push({ $skip: skip });
     pipeline.push({ $limit: limit });

@@ -11,6 +11,10 @@ export const SWAGGER_TAGS = [
     name: 'Users',
     description: 'APIs for user management',
   },
+  {
+    name: 'MealPlan',
+    description: 'APIs for meal planning and swaps',
+  },
 ];
 
 export const BEARER_AUTH = {

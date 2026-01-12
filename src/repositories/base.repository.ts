@@ -69,6 +69,10 @@ export class BaseRepository<T extends SoftDeleteDocument> {
     return this.model.deleteOne({ _id: id }).exec();
   }
 
+  deleteMany(query: FilterQuery<T>): Promise<{ deletedCount?: number }> {
+    return this.model.deleteMany(query).exec();
+  }
+
   paginate(
     query: FilterQuery<T>,
     options: PaginateOptions,

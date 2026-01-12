@@ -16,6 +16,7 @@ const UserSchema = new Schema<User>(
   {
     fullName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
+    avatarUrl: { type: String, required: false },
     phoneNumber: { type: String, unique: true, sparse: true },
     password: { type: String, required: true },
     refreshToken: { type: String, required: false },

@@ -119,6 +119,7 @@ export interface PropertyFields {
 }
 
 export interface Food extends SoftDeleteDocument {
+  _id: Types.ObjectId;
   name: string;
   imgUrls: string[];
   nutrition: NutritionFields;

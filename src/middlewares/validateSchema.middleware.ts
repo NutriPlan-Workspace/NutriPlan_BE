@@ -1,12 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
-import { AnyZodObject, ZodError } from 'zod';
+import { ZodError, ZodTypeAny } from 'zod';
 
 import { ERROR_MESSAGE } from '@/constants/messages';
 import { STATUS_CODE } from '@/constants/statusCodes';
 import { errorResponse } from '@/utils/responseFormats';
 
 const validateSchema =
-  (schema: AnyZodObject, source: 'body' | 'query' | 'params' = 'body') =>
+  (schema: ZodTypeAny, source: 'body' | 'query' | 'params' = 'body') =>
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       await schema.parseAsync(req[source]);

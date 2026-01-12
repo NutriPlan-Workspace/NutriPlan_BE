@@ -31,6 +31,7 @@ class AuthService {
       email: user.email,
       fullName: user.fullName,
       role: user.role,
+      avatarUrl: user.avatarUrl,
     };
 
     const accessToken = generateAccessToken(payload);

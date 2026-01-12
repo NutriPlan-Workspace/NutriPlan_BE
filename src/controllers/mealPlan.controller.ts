@@ -2,7 +2,11 @@ import { Request, Response } from 'express';
 
 import { ERROR_MESSAGE } from '@/constants/messages';
 import { STATUS_CODE } from '@/constants/statusCodes';
-import { autoGenerateMealPlanSchema } from '@/schemas/mealPlan.schema';
+import {
+  autoGenerateMealPlanSchema,
+  mealPlanSwapApplySchema,
+  mealPlanSwapOptionsSchema,
+} from '@/schemas/mealPlan.schema';
 import mealPlanService from '@/services/mealPlan.service';
 import {
   emptyArrayResponse,
@@ -227,6 +231,80 @@ class MealPlanController {
     }
   }
 
+  async getSwapOptions(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
+
+      const mealPlanId = req.params.id;
+      const parsedData = mealPlanSwapOptionsSchema.parse(req.body);
+      const result = await mealPlanService.getSwapOptions(
+        mealPlanId,
+        userId,
+        parsedData,
+      );
+
+      if (!result) {
+        res.status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND).json(notFoundResponse());
+        return;
+      }
+
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(result));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            error,
+            ERROR_MESSAGE.SERVER_ERROR,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  }
+
+  async applySwap(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
+
+      const mealPlanId = req.params.id;
+      const parsedData = mealPlanSwapApplySchema.parse(req.body);
+      const result = await mealPlanService.applySwap(
+        mealPlanId,
+        userId,
+        parsedData,
+      );
+
+      if (!result) {
+        res.status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND).json(notFoundResponse());
+        return;
+      }
+
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(result));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            error,
+            ERROR_MESSAGE.SERVER_ERROR,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  }
+
   async autoGenerateMealPlan(req: Request, res: Response) {
     try {
       const parsedData = autoGenerateMealPlanSchema.parse(req.body);
@@ -241,6 +319,16 @@ class MealPlanController {
           mealDate,
           userId,
         );
+
+        // If generation fails (e.g., user has no nutrition goals or exclusions are too strict),
+        // fallback to demo generation when preferences are provided.
+        if (!result && preferences) {
+          result = await mealPlanService.autoGenerateMealPlanForDemo(
+            mealDate,
+            preferences,
+            userId,
+          );
+        }
       } else {
         if (!preferences) {
           res
@@ -255,7 +343,15 @@ class MealPlanController {
       }
 
       if (!result) {
-        res.status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND).json(notFoundResponse());
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.BAD_REQUEST)
+          .json(
+            errorResponse(
+              null,
+              'Unable to generate a meal plan with current settings. Please set nutrition targets or relax exclusions.',
+              STATUS_CODE.CLIENT_ERROR.BAD_REQUEST,
+            ),
+          );
         return;
       }
 

@@ -26,6 +26,7 @@ export interface User extends SoftDeleteDocument {
   email: string;
   phoneNumber: string;
   password: string;
+  avatarUrl?: string;
   physicalStat: {
     gender: Gender;
     heightRecords: { date: Date; height: number }[];
@@ -49,6 +50,7 @@ export type UserResponse = {
   fullName: string;
   email: string;
   role: string;
+  avatarUrl?: string;
 };
 
 export enum NutritionGoals {
@@ -96,4 +98,5 @@ export interface TokenPayload {
   email: string;
   fullName: string;
   role: string;
+  avatarUrl?: string;
 }

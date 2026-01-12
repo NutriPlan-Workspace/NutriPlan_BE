@@ -158,7 +158,7 @@ const FoodSchema = new Schema<Food>(
     isRecipe: { type: Boolean, required: true },
     isCustom: { type: Boolean, required: true },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
-    categories: [{ type: Number }],
+    categories: { type: [Number], default: [] },
   },
   { timestamps: true, autoCreate: true },
 );

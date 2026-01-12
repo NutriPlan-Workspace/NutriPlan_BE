@@ -15,3 +15,8 @@ export const SALT_ROUNDS: number = Number(process.env.SALT_ROUNDS) || 10;
 export const SERVER_URL = `http://localhost:${PORT}/api`;
 export const FRONTEND_BASE_URL: string =
   process.env.FRONTEND_BASE_URL || 'http://localhost:5173';
+export const GITHUB_TOKEN: string = process.env.GITHUB_TOKEN || '';
+export const GITHUB_AI_ENDPOINT: string =
+  process.env.GITHUB_AI_ENDPOINT || 'https://models.github.ai/inference';
+export const GITHUB_AI_MODEL: string =
+  process.env.GITHUB_AI_MODEL || 'openai/gpt-4.1';

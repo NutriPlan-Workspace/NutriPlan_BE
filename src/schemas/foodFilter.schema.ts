@@ -54,9 +54,12 @@ export const FoodFilterSchema = PaginationSchema.extend({
     ),
 
   applyExclusions: z
-    .string()
+    .union([z.boolean(), z.string()])
     .optional()
-    .transform((val) => val === 'true'),
+    .transform((val) => {
+      if (typeof val === 'boolean') return val;
+      return val === 'true';
+    }),
 
   minPer100CaloriesProteins: z.coerce.number().optional(),
   maxPer100CaloriesCarbs: z.coerce.number().optional(),

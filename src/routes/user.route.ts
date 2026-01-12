@@ -5,6 +5,7 @@ import UserController from '@/controllers/user.controller';
 import { validateAccessToken } from '@/middlewares/validateCookie.middleware';
 import validateSchema from '@/middlewares/validateSchema.middleware';
 import {
+  avatarDto,
   excludedDto,
   primaryDietDto,
   updateUserPasswordSchema,
@@ -47,6 +48,12 @@ router.put(
   ROUTES.USER.EDIT_FOOD_EXCLUSIONS,
   validateSchema(excludedDto),
   UserController.updateFoodExclusions,
+);
+
+router.put(
+  ROUTES.USER.EDIT_AVATAR,
+  validateSchema(avatarDto),
+  UserController.updateAvatar,
 );
 
 export default router;

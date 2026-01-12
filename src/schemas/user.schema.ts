@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { ERROR_MESSAGE } from '@/constants/messages';
+import { NUTRITION_TARGET_MIN_GAP } from '@/constants/nutritionTargets';
 import { UserModel } from '@/models/user.model';
 import {
   ActivityLevel,
@@ -31,22 +32,27 @@ export const physicalStatDto = z.object({
   activityLevel: z.nativeEnum(ActivityLevel),
 });
 
-const rangeSchema = z
-  .object({
-    from: z.number().min(0, ERROR_MESSAGE.FROM_NUMBER),
-    to: z.number().min(0, ERROR_MESSAGE.TO_NUMBER),
-  })
-  .refine((data) => data.from < data.to, {
-    message: ERROR_MESSAGE.FROM_LESS_THAN_TO,
-    path: ['from'],
-  });
+const makeRangeSchema = (minGap: number) =>
+  z
+    .object({
+      from: z.number().min(0, ERROR_MESSAGE.FROM_NUMBER),
+      to: z.number().min(0, ERROR_MESSAGE.TO_NUMBER),
+    })
+    .refine((data) => data.from < data.to, {
+      message: ERROR_MESSAGE.FROM_LESS_THAN_TO,
+      path: ['from'],
+    })
+    .refine((data) => data.to - data.from >= minGap, {
+      message: `Range must be at least ${minGap}`,
+      path: ['to'],
+    });
 
 export const nutritionGoalsDto = z.object({
   title: z.string().min(0).optional(),
   calories: z.number().min(0, ERROR_MESSAGE.CALORIES_NUMBER).optional(),
-  proteinTarget: rangeSchema.optional(),
-  carbTarget: rangeSchema.optional(),
-  fatTarget: rangeSchema.optional(),
+  proteinTarget: makeRangeSchema(NUTRITION_TARGET_MIN_GAP.PROTEIN).optional(),
+  carbTarget: makeRangeSchema(NUTRITION_TARGET_MIN_GAP.CARB).optional(),
+  fatTarget: makeRangeSchema(NUTRITION_TARGET_MIN_GAP.FAT).optional(),
   minimumFiber: z.number().min(0, ERROR_MESSAGE.FIBER_NUMBER).optional(),
   maxiumSodium: z.number().min(0, ERROR_MESSAGE.MAX_SODIUM).optional(),
   maxiumCholesterol: z
@@ -63,6 +69,10 @@ export const primaryDietDto = z.object({
 export const excludedDto = z.object({
   categories: z.array(z.number()).optional(),
   foods: z.array(z.object({ foodId: z.string().min(1) })).optional(),
+});
+
+export const avatarDto = z.object({
+  avatarUrl: z.string().url().min(1),
 });
 
 export const baseUserSchema = z.object({

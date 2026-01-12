@@ -8,6 +8,10 @@ export const ROUTES = {
     LOGOUT: '/logout',
     REGISTER: '/register',
   },
+  AI: {
+    PATH: '/ai',
+    CHAT: '/chat',
+  },
   MEALPLAN: {
     PATH: '/planner',
     ADD: '/',
@@ -17,6 +21,8 @@ export const ROUTES = {
     EDIT: '/:id',
     DELETE: '/:id',
     AUTO_GENERATE: '/auto-generate',
+    SWAP_OPTIONS: '/:id/swap-options',
+    SWAP: '/:id/swap',
   },
   USER: {
     PATH: '/user',
@@ -30,6 +36,7 @@ export const ROUTES = {
     GET_FOOD_EXCLUSIONS: '/food-exclusions',
     EDIT_FOOD_EXCLUSIONS: '/food-exclusions',
     GET_ME: '/me',
+    EDIT_AVATAR: '/avatar',
   },
   COLLECTION: {
     PATH: '/collections',

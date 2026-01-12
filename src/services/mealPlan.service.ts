@@ -1,13 +1,20 @@
 import _ from 'lodash';
-import { Schema, Types } from 'mongoose';
+import { FilterQuery, Schema, Types } from 'mongoose';
 
-import { EXCLUDED_BY_DIET } from '@/constants/category';
+import { CATEGORIES_BY_GROUP, EXCLUDED_BY_DIET } from '@/constants/category';
+import { FoodRepository } from '@/repositories/food.repository';
 import { MealPlanRepository } from '@/repositories/mealPlan.repository';
 import { UserRepository } from '@/repositories/user.repository';
-import type { MealPlanPreferences } from '@/schemas/mealPlan.schema';
 import type {
+  MealPlanPreferences,
+  MealPlanSwapApplyInput,
+  MealPlanSwapOptionsInput,
+} from '@/schemas/mealPlan.schema';
+import type {
+  Food,
   MealPlan,
   NutritionGoalsType,
+  PopulatedMealItemIngre,
   PopulatedMealPlanIngre,
 } from '@/types';
 import type {
@@ -17,21 +24,55 @@ import type {
 import { ChooseMeal } from '@/utils/chooseMeal';
 import { getWeekRange } from '@/utils/date';
 
+type MacroTotals = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+};
+
+type MealType = 'breakfast' | 'lunch' | 'dinner';
+
+type FoodForSwap = Pick<
+  Food,
+  '_id' | 'nutrition' | 'units' | 'defaultUnit' | 'property' | 'categories'
+>;
+
+type FoodSwapOptionCandidate = {
+  foodId: string;
+  amount: number;
+  unit: number;
+  nutrition: MacroTotals;
+  food: FoodForSwap;
+  score: number;
+};
+
 class MealPlanService {
   private mealPlanRepository: MealPlanRepository;
   private userRepository: UserRepository;
+  private foodRepository: FoodRepository;
   private chooseMeal: ChooseMeal;
 
   constructor() {
     this.mealPlanRepository = new MealPlanRepository();
     this.userRepository = new UserRepository();
+    this.foodRepository = new FoodRepository();
     this.chooseMeal = new ChooseMeal();
   }
 
+  private getDayBounds(date: Date) {
+    const start = new Date(date);
+    start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(date);
+    end.setUTCHours(23, 59, 59, 999);
+    return { start, end };
+  }
+
   async getMealPlanByDate(date: Date, userId: string) {
+    const { start, end } = this.getDayBounds(date);
     return await this.mealPlanRepository.getListPopulate({
       userId,
-      mealDate: date,
+      mealDate: { $gte: start, $lte: end },
     });
   }
 
@@ -40,9 +81,11 @@ class MealPlanService {
   }
 
   async getMealPlanByRange(from: Date, to: Date, userId: string) {
+    const { start: fromStart } = this.getDayBounds(from);
+    const { end: toEnd } = this.getDayBounds(to);
     return this.mealPlanRepository.getListPopulate({
       userId,
-      mealDate: { $gte: from, $lte: to },
+      mealDate: { $gte: fromStart, $lte: toEnd },
     });
   }
 
@@ -90,6 +133,7 @@ class MealPlanService {
       string,
       {
         name: string;
+        categories?: number[];
         totalAmount: number;
         unit: {
           description: string;
@@ -153,8 +197,14 @@ class MealPlanService {
                 item.foodId.units[item.unit].amount;
             }
             if (!ingredientMap[key]) {
+              const categories =
+                Array.isArray(ingredient.categories) &&
+                ingredient.categories.length > 0
+                  ? ingredient.categories
+                  : [136];
               ingredientMap[key] = {
                 name: ingredient.name,
+                categories,
                 totalAmount: ingredientAmount,
                 unit: unit,
                 ingredientId: ingredient._id.toString(),
@@ -211,6 +261,660 @@ class MealPlanService {
     return Object.values(ingredientMap);
   }
 
+  private getServingSize(food: FoodForSwap, amount: number, unit: number) {
+    const unitAmount =
+      food.units?.[unit]?.amount ?? food.units?.[food.defaultUnit]?.amount ?? 1;
+    if (!unitAmount || unitAmount <= 0) {
+      return 0;
+    }
+    return amount / unitAmount;
+  }
+
+  private calculateItemNutrition(
+    food: FoodForSwap,
+    amount: number,
+    unit: number,
+  ): MacroTotals {
+    const servings = this.getServingSize(food, amount, unit);
+    return {
+      calories: (food.nutrition?.calories ?? 0) * servings,
+      protein: (food.nutrition?.proteins ?? 0) * servings,
+      carbs: (food.nutrition?.carbs ?? 0) * servings,
+      fat: (food.nutrition?.fats ?? 0) * servings,
+    };
+  }
+
+  private calculateMealNutrition(items: PopulatedMealItemIngre[]): MacroTotals {
+    return items.reduce(
+      (acc, item) => {
+        const totals = this.calculateItemNutrition(
+          item.foodId,
+          item.amount,
+          item.unit,
+        );
+        acc.calories += totals.calories;
+        acc.protein += totals.protein;
+        acc.carbs += totals.carbs;
+        acc.fat += totals.fat;
+        return acc;
+      },
+      { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    );
+  }
+
+  private addTotals(a: MacroTotals, b: MacroTotals): MacroTotals {
+    return {
+      calories: a.calories + b.calories,
+      protein: a.protein + b.protein,
+      carbs: a.carbs + b.carbs,
+      fat: a.fat + b.fat,
+    };
+  }
+
+  private normalizeRange(from: number, to: number) {
+    return {
+      from: Math.max(from, 0),
+      to: Math.max(to, 0),
+    };
+  }
+
+  private calculateRemainingTargets(
+    preferences: NutritionGoalsType,
+    mealItemsByType: PopulatedMealPlanIngre['mealItems'],
+    mealType: MealType,
+  ) {
+    const otherTotals = (['breakfast', 'lunch', 'dinner'] as const)
+      .filter((type) => type !== mealType)
+      .reduce(
+        (acc, type) =>
+          this.addTotals(
+            acc,
+            this.calculateMealNutrition(mealItemsByType[type]),
+          ),
+        { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      );
+
+    const remainingCalories = preferences.calories - otherTotals.calories;
+    const remainingProteinFrom =
+      preferences.proteinTarget.from - otherTotals.protein;
+    const remainingProteinTo =
+      preferences.proteinTarget.to - otherTotals.protein;
+    const remainingCarbFrom = preferences.carbTarget.from - otherTotals.carbs;
+    const remainingCarbTo = preferences.carbTarget.to - otherTotals.carbs;
+    const remainingFatFrom = preferences.fatTarget.from - otherTotals.fat;
+    const remainingFatTo = preferences.fatTarget.to - otherTotals.fat;
+
+    const remainingTargets: NutritionGoalsType = {
+      calories: Math.max(remainingCalories, 0),
+      proteinTarget: this.normalizeRange(
+        remainingProteinFrom,
+        remainingProteinTo,
+      ),
+      carbTarget: this.normalizeRange(remainingCarbFrom, remainingCarbTo),
+      fatTarget: this.normalizeRange(remainingFatFrom, remainingFatTo),
+    };
+
+    const hasInsufficientRemaining =
+      remainingCalories <= 0 ||
+      remainingProteinTo <= 0 ||
+      remainingCarbTo <= 0 ||
+      remainingFatTo <= 0;
+
+    return { remainingTargets, hasInsufficientRemaining };
+  }
+
+  private buildNutritionGoalsFromTotals(
+    totals: MacroTotals,
+  ): NutritionGoalsType {
+    return {
+      calories: totals.calories,
+      proteinTarget: { from: totals.protein, to: totals.protein },
+      carbTarget: { from: totals.carbs, to: totals.carbs },
+      fatTarget: { from: totals.fat, to: totals.fat },
+    };
+  }
+
+  private scoreTotals(target: MacroTotals, candidate: MacroTotals) {
+    const safe = (value: number) => (value > 0 ? value : 1);
+    return (
+      Math.abs(candidate.calories - target.calories) / safe(target.calories) +
+      Math.abs(candidate.protein - target.protein) / safe(target.protein) +
+      Math.abs(candidate.carbs - target.carbs) / safe(target.carbs) +
+      Math.abs(candidate.fat - target.fat) / safe(target.fat)
+    );
+  }
+
+  private roundAmount(value: number) {
+    if (!Number.isFinite(value)) return 0;
+    return Math.round(value * 100) / 100;
+  }
+
+  private async getExcludedData(userId: string) {
+    const excludedCategorySet = new Set<number>();
+    const excludedFoodSet = new Set<string>();
+
+    const user = await this.userRepository.getById(userId, {
+      excluded: 1,
+      primaryDiet: 1,
+    });
+
+    if (Array.isArray(user?.excluded?.categories)) {
+      user.excluded.categories.forEach((catId) =>
+        excludedCategorySet.add(catId),
+      );
+    }
+
+    if (Array.isArray(user?.excluded?.foods)) {
+      user.excluded.foods.forEach((food) => {
+        let foodId: string | undefined;
+        if (typeof food === 'string') {
+          foodId = food;
+        } else if (food instanceof Types.ObjectId) {
+          foodId = food.toString();
+        } else {
+          foodId = (food as { foodId?: Types.ObjectId }).foodId?.toString();
+        }
+        if (foodId) {
+          excludedFoodSet.add(foodId);
+        }
+      });
+    }
+
+    if (user?.primaryDiet && user.primaryDiet in EXCLUDED_BY_DIET) {
+      const dietExcluded =
+        EXCLUDED_BY_DIET[user.primaryDiet as keyof typeof EXCLUDED_BY_DIET];
+
+      dietExcluded.forEach((mainItemId) => {
+        excludedCategorySet.add(mainItemId);
+
+        const group = CATEGORIES_BY_GROUP.find(
+          (group) => group.mainItem === mainItemId,
+        );
+        if (group) {
+          group.items.forEach((itemId) => excludedCategorySet.add(itemId));
+        }
+      });
+    }
+
+    return {
+      excludedCategoryIds: excludedCategorySet,
+      excludedFoodIds: excludedFoodSet,
+    };
+  }
+
+  private buildCategorySets(
+    items: PopulatedMealItemIngre[],
+    excludedCategoryIds: Set<number>,
+  ) {
+    const allCategories = new Set<number>();
+    const mainCategories = new Set<number>();
+    const sideCategories = new Set<number>();
+
+    for (const item of items) {
+      const categories = item.foodId?.categories ?? [];
+      for (const category of categories) {
+        allCategories.add(category);
+        if (item.foodId?.property?.mainDish) {
+          mainCategories.add(category);
+        }
+        if (item.foodId?.property?.sideDish) {
+          sideCategories.add(category);
+        }
+      }
+    }
+
+    const defaultCategories = _.range(1, 137).filter(
+      (id) => !excludedCategoryIds.has(id),
+    );
+
+    const pickCategories = (source: Set<number>) => {
+      const selected = Array.from(source).filter(
+        (id) => !excludedCategoryIds.has(id),
+      );
+      if (selected.length > 0) return selected;
+
+      const fallback = Array.from(allCategories).filter(
+        (id) => !excludedCategoryIds.has(id),
+      );
+      if (fallback.length > 0) return fallback;
+
+      return defaultCategories.length > 0 ? defaultCategories : _.range(1, 137);
+    };
+
+    return {
+      mainCategories: pickCategories(mainCategories),
+      sideCategories: pickCategories(sideCategories),
+    };
+  }
+
+  private findMealItemIndex(
+    items: Array<{ foodId: unknown; _id?: unknown }>,
+    targetFoodId?: string,
+    targetItemId?: string,
+  ) {
+    if (targetItemId) {
+      const index = items.findIndex(
+        (item) => (item._id as Types.ObjectId)?.toString() === targetItemId,
+      );
+      if (index >= 0) return index;
+    }
+
+    if (targetFoodId) {
+      return items.findIndex((item) => {
+        const populatedId = (item.foodId as { _id?: Types.ObjectId })?._id;
+        const foodId =
+          populatedId?.toString() ??
+          (item.foodId as Types.ObjectId)?.toString();
+        return foodId === targetFoodId;
+      });
+    }
+
+    return -1;
+  }
+
+  private async getSimilarFoods(
+    targetFood: FoodForSwap,
+    mealType: MealType,
+    excludedCategoryIds: Set<number>,
+    excludedFoodIds: Set<string>,
+    limit: number,
+    tolerance: number,
+  ) {
+    const excludeIds = new Set<string>(excludedFoodIds);
+    excludeIds.add(targetFood._id.toString());
+
+    const baseQuery: FilterQuery<Food> = {
+      deleted: false,
+      _id: { $nin: Array.from(excludeIds) },
+    };
+
+    const categoryFilter = (useTargetCategories: boolean) => {
+      const categories: Record<string, unknown> = {};
+      if (useTargetCategories && targetFood.categories?.length) {
+        categories.$in = targetFood.categories;
+      }
+      if (excludedCategoryIds.size > 0) {
+        categories.$nin = Array.from(excludedCategoryIds);
+      }
+      return Object.keys(categories).length > 0 ? { categories } : {};
+    };
+
+    const nutritionFilters: Record<string, unknown> = {};
+    const addRange = (field: string, value?: number) => {
+      if (value && value > 0) {
+        nutritionFilters[`nutrition.${field}`] = {
+          $gte: value * (1 - tolerance),
+          $lte: value * (1 + tolerance),
+        };
+      }
+    };
+
+    addRange('calories', targetFood.nutrition?.calories);
+    addRange('proteins', targetFood.nutrition?.proteins);
+    addRange('carbs', targetFood.nutrition?.carbs);
+    addRange('fats', targetFood.nutrition?.fats);
+
+    const dishTypeFilter: FilterQuery<Food> = {};
+    if (targetFood.property?.mainDish) {
+      dishTypeFilter['property.mainDish'] = true;
+    } else if (targetFood.property?.sideDish) {
+      dishTypeFilter['property.sideDish'] = true;
+    }
+
+    const mealTypeKey = `property.is${mealType
+      .charAt(0)
+      .toUpperCase()}${mealType.slice(1)}`;
+    const mealTypeFilter = { [mealTypeKey]: true };
+
+    const projection: Record<string, 0 | 1> = {
+      name: 1,
+      imgUrls: 1,
+      nutrition: 1,
+      defaultUnit: 1,
+      units: 1,
+      property: 1,
+      categories: 1,
+    };
+
+    const queries: FilterQuery<Food>[] = [
+      {
+        ...baseQuery,
+        ...nutritionFilters,
+        ...categoryFilter(true),
+        ...dishTypeFilter,
+        ...mealTypeFilter,
+      },
+      {
+        ...baseQuery,
+        ...nutritionFilters,
+        ...categoryFilter(true),
+        ...dishTypeFilter,
+      },
+      {
+        ...baseQuery,
+        ...nutritionFilters,
+        ...categoryFilter(false),
+        ...dishTypeFilter,
+      },
+      {
+        ...baseQuery,
+        ...nutritionFilters,
+        ...categoryFilter(false),
+      },
+    ];
+
+    const candidateMap = new Map<string, Food>();
+    const maxCandidates = Math.max(limit * 20, 200);
+
+    for (const query of queries) {
+      if (candidateMap.size >= maxCandidates) break;
+      const foods = await this.foodRepository.getList(query, projection, {
+        limit: maxCandidates,
+      });
+      for (const food of foods) {
+        const id = food._id.toString();
+        if (!candidateMap.has(id)) {
+          candidateMap.set(id, food);
+        }
+      }
+    }
+
+    return Array.from(candidateMap.values());
+  }
+
+  async getSwapOptions(
+    mealPlanId: string,
+    userId: string,
+    input: MealPlanSwapOptionsInput,
+  ) {
+    const mealPlans = await this.mealPlanRepository.getListPopulate({
+      _id: mealPlanId,
+      userId,
+    });
+    const mealPlan = mealPlans[0];
+    if (!mealPlan) {
+      return null;
+    }
+
+    const mealType = input.mealType;
+    const mealItems = mealPlan.mealItems[mealType] || [];
+    const { excludedCategoryIds, excludedFoodIds } =
+      await this.getExcludedData(userId);
+
+    if (input.swapType === 'food') {
+      const itemIndex = this.findMealItemIndex(
+        mealItems as Array<{ foodId: unknown; _id?: unknown }>,
+        input.targetFoodId,
+        input.targetItemId,
+      );
+      if (itemIndex < 0) {
+        return null;
+      }
+      const targetItem = mealItems[itemIndex];
+      const targetFood = targetItem.foodId;
+      const targetTotals = this.calculateItemNutrition(
+        targetFood,
+        targetItem.amount,
+        targetItem.unit,
+      );
+      const limit = input.limit ?? 10;
+      const tolerance = input.tolerance ?? 0.2;
+
+      const candidates = await this.getSimilarFoods(
+        targetFood,
+        mealType,
+        excludedCategoryIds,
+        excludedFoodIds,
+        limit,
+        tolerance,
+      );
+
+      const isFoodOption = (
+        option: FoodSwapOptionCandidate | null,
+      ): option is FoodSwapOptionCandidate => option !== null;
+
+      const options = candidates
+        .map((food): FoodSwapOptionCandidate | null => {
+          const calories = food.nutrition?.calories ?? 0;
+          if (calories <= 0 || targetTotals.calories <= 0) {
+            return null;
+          }
+          const servingMultiplier = targetTotals.calories / calories;
+          const unit = food.defaultUnit ?? 0;
+          const unitAmount = food.units?.[unit]?.amount ?? 1;
+          const amount = this.roundAmount(servingMultiplier * unitAmount);
+          if (amount <= 0) {
+            return null;
+          }
+          const nutrition = {
+            calories: calories * servingMultiplier,
+            protein: (food.nutrition?.proteins ?? 0) * servingMultiplier,
+            carbs: (food.nutrition?.carbs ?? 0) * servingMultiplier,
+            fat: (food.nutrition?.fats ?? 0) * servingMultiplier,
+          };
+
+          return {
+            foodId: food._id.toString(),
+            amount,
+            unit,
+            nutrition,
+            food,
+            score: this.scoreTotals(targetTotals, nutrition),
+          };
+        })
+        .filter(isFoodOption)
+        .sort((a, b) => a.score - b.score)
+        .slice(0, limit)
+        .map(({ score: _score, ...option }) => option);
+
+      return {
+        mealPlanId,
+        mealType,
+        swapType: 'food',
+        target: {
+          foodId: targetFood._id.toString(),
+          amount: targetItem.amount,
+          unit: targetItem.unit,
+          nutrition: targetTotals,
+          food: targetFood,
+        },
+        options,
+      };
+    }
+
+    const targetTotals = this.calculateMealNutrition(mealItems);
+    const preferences = await this.getUserPreferences(userId);
+    if (!preferences) {
+      return {
+        mealPlanId,
+        mealType,
+        swapType: 'meal',
+        notice: 'Nutrition goals are missing for this user.',
+        target: {
+          items: mealItems.map((item) => ({
+            foodId: item.foodId?._id?.toString(),
+            amount: item.amount,
+            unit: item.unit,
+            food: item.foodId,
+          })),
+          nutrition: targetTotals,
+        },
+        options: [],
+      };
+    }
+
+    const { remainingTargets, hasInsufficientRemaining } =
+      this.calculateRemainingTargets(preferences, mealPlan.mealItems, mealType);
+
+    if (hasInsufficientRemaining) {
+      return {
+        mealPlanId,
+        mealType,
+        swapType: 'meal',
+        notice:
+          'Remaining nutrition is too low or negative to generate options.',
+        remainingTargets,
+        target: {
+          items: mealItems.map((item) => ({
+            foodId: item.foodId?._id?.toString(),
+            amount: item.amount,
+            unit: item.unit,
+            food: item.foodId,
+          })),
+          nutrition: targetTotals,
+        },
+        options: [],
+      };
+    }
+    const currentFoodIds = new Set<string>();
+    mealItems.forEach((item) => {
+      const id = item.foodId?._id?.toString();
+      if (id) {
+        currentFoodIds.add(id);
+      }
+    });
+    const excludeFoods = new Set<string>(excludedFoodIds);
+    currentFoodIds.forEach((id) => {
+      if (id) excludeFoods.add(id);
+    });
+
+    const { mainCategories, sideCategories } = this.buildCategorySets(
+      mealItems,
+      excludedCategoryIds,
+    );
+    const limit = input.limit ?? 10;
+
+    const combos = await this.chooseMeal.getMealOptionsByCategories(
+      mainCategories,
+      sideCategories,
+      remainingTargets,
+      mealType,
+      limit,
+      excludeFoods,
+      excludedCategoryIds,
+    );
+
+    if (combos.length === 0) {
+      return {
+        mealPlanId,
+        mealType,
+        swapType: 'meal',
+        notice: 'No meal options found for the remaining nutrition targets.',
+        remainingTargets,
+        target: {
+          items: mealItems.map((item) => ({
+            foodId: item.foodId?._id?.toString(),
+            amount: item.amount,
+            unit: item.unit,
+            food: item.foodId,
+          })),
+          nutrition: targetTotals,
+        },
+        options: [],
+      };
+    }
+
+    const options = combos.map((combo) => {
+      const mainUnit = combo.mainDish.food.defaultUnit ?? 0;
+      const mainUnitAmount = combo.mainDish.food.units?.[mainUnit]?.amount ?? 1;
+      const sideUnit = combo.sideDish.food.defaultUnit ?? 0;
+      const sideUnitAmount = combo.sideDish.food.units?.[sideUnit]?.amount ?? 1;
+
+      return {
+        items: [
+          {
+            foodId: combo.mainDish.food._id.toString(),
+            amount: this.roundAmount(combo.mainDish.serving * mainUnitAmount),
+            unit: mainUnit,
+            food: combo.mainDish.food,
+          },
+          {
+            foodId: combo.sideDish.food._id.toString(),
+            amount: this.roundAmount(combo.sideDish.serving * sideUnitAmount),
+            unit: sideUnit,
+            food: combo.sideDish.food,
+          },
+        ],
+        nutrition: combo.totals,
+      };
+    });
+
+    return {
+      mealPlanId,
+      mealType,
+      swapType: 'meal',
+      remainingTargets,
+      target: {
+        items: mealItems.map((item) => ({
+          foodId: item.foodId?._id?.toString(),
+          amount: item.amount,
+          unit: item.unit,
+          food: item.foodId,
+        })),
+        nutrition: targetTotals,
+      },
+      options,
+    };
+  }
+
+  async applySwap(
+    mealPlanId: string,
+    userId: string,
+    input: MealPlanSwapApplyInput,
+  ) {
+    const mealPlan = await this.mealPlanRepository.getById(mealPlanId);
+    if (!mealPlan) {
+      return null;
+    }
+
+    if (mealPlan.userId?.toString() !== userId) {
+      return null;
+    }
+
+    const mealType = input.mealType;
+    const mealItems = mealPlan.mealItems?.[mealType] || [];
+
+    if (input.swapType === 'food') {
+      const itemIndex = this.findMealItemIndex(
+        mealItems as Array<{ foodId: unknown; _id?: unknown }>,
+        input.targetFoodId,
+        input.targetItemId,
+      );
+      if (itemIndex < 0) {
+        return null;
+      }
+
+      const currentItem = mealItems[itemIndex];
+      const updatedItem = {
+        ...currentItem,
+        foodId: new Types.ObjectId(
+          input.replacement.foodId,
+        ) as unknown as Schema.Types.ObjectId,
+        amount: input.replacement.amount ?? currentItem.amount,
+        unit: input.replacement.unit ?? currentItem.unit,
+      };
+      mealItems[itemIndex] = updatedItem;
+    } else {
+      mealPlan.mealItems[mealType] = input.replacement.items.map((item) => ({
+        foodId: new Types.ObjectId(
+          item.foodId,
+        ) as unknown as Schema.Types.ObjectId,
+        amount: item.amount,
+        unit: item.unit,
+      }));
+    }
+
+    const updatedMealPlan = await this.mealPlanRepository.update(mealPlanId, {
+      mealItems: mealPlan.mealItems,
+    });
+
+    const populated = await this.mealPlanRepository.getListPopulate({
+      _id: mealPlanId,
+    });
+
+    return populated[0] || updatedMealPlan;
+  }
+
   async autoGenerateMealPlanForUser(
     date: Date,
     userId: string,
@@ -220,10 +924,22 @@ class MealPlanService {
       return null;
     }
 
-    const mealPlan = await this.generateMealPlanForUser(date, userPreferences);
+    const { excludedCategoryIds } = await this.getExcludedData(userId);
+
+    const mealPlan = await this.generateMealPlanForUser(
+      date,
+      userPreferences,
+      excludedCategoryIds,
+    );
     if (!mealPlan) {
       return null;
     }
+
+    const { start, end } = this.getDayBounds(date);
+    await this.mealPlanRepository.deleteMany({
+      userId: new Types.ObjectId(userId) as unknown as Schema.Types.ObjectId,
+      mealDate: { $gte: start, $lte: end },
+    });
 
     const savedMealPlan = await this.mealPlanRepository.create({
       userId: new Types.ObjectId(userId) as unknown as Schema.Types.ObjectId,
@@ -278,7 +994,39 @@ class MealPlanService {
   private async generateMealPlanForUser(
     date: Date,
     preferences: NutritionGoalsType,
+    excludedCategoryIds: Set<number>,
   ): Promise<MealPlanForUser | null> {
+    const allowedCategories = _.range(1, 137).filter(
+      (id) => !excludedCategoryIds.has(id),
+    );
+
+    const getMealWithFallback = async (
+      mainCategories: number[],
+      sideCategories: number[],
+      nutritionTargets: NutritionGoalsType,
+      mealType: MealType,
+    ) => {
+      let result = await this.chooseMeal.getMealsByCategories(
+        mainCategories,
+        sideCategories,
+        nutritionTargets,
+        mealType,
+        excludedCategoryIds,
+      );
+
+      if (!result.mainDish || !result.sideDish) {
+        result = await this.chooseMeal.getMealsByCategories(
+          allowedCategories,
+          allowedCategories,
+          nutritionTargets,
+          undefined,
+          excludedCategoryIds,
+        );
+      }
+
+      return result;
+    };
+
     const breakfastMainCategories = [10, 66];
     const breakfastSideCategories = [28, 13];
 
@@ -293,19 +1041,19 @@ class MealPlanService {
     const dinnerTargets = this.getMealNutritionTargets(preferences, 0.3);
 
     const [breakfastResult, lunchResult, dinnerResult] = await Promise.all([
-      this.chooseMeal.getMealsByCategories(
+      getMealWithFallback(
         breakfastMainCategories,
         breakfastSideCategories,
         breakfastTargets,
-        'lunch',
+        'breakfast',
       ),
-      this.chooseMeal.getMealsByCategories(
+      getMealWithFallback(
         lunchMainCategories,
         lunchSideCategories,
         lunchTargets,
         'lunch',
       ),
-      this.chooseMeal.getMealsByCategories(
+      getMealWithFallback(
         dinnerMainCategories,
         dinnerSideCategories,
         dinnerTargets,
@@ -406,6 +1154,7 @@ class MealPlanService {
   async autoGenerateMealPlanForDemo(
     date: Date,
     preferences: MealPlanPreferences,
+    userId?: string,
   ): Promise<PopulatedMealPlanIngre | null> {
     const mealPlan = await this.generateMealPlanForDemo(date, preferences);
     if (!mealPlan) {
@@ -435,6 +1184,13 @@ class MealPlanService {
 
     const savedMealPlan = await this.mealPlanRepository.create({
       ...convertedMealPlan,
+      ...(userId
+        ? {
+            userId: new Types.ObjectId(
+              userId,
+            ) as unknown as Schema.Types.ObjectId,
+          }
+        : {}),
     });
 
     const populatedMealPlan = await this.mealPlanRepository.getListPopulate({
@@ -474,25 +1230,35 @@ class MealPlanService {
       (id) => !excluded.includes(id),
     );
 
+    const fallbackMealSelection = async (
+      targets: NutritionGoalsType,
+      mealType: MealType,
+    ) => {
+      let result = await this.chooseMeal.getMealsByCategories(
+        filteredCategoryIds,
+        filteredCategoryIds,
+        targets,
+        mealType,
+        excluded,
+      );
+
+      if (!result.mainDish || !result.sideDish) {
+        result = await this.chooseMeal.getMealsByCategories(
+          filteredCategoryIds,
+          filteredCategoryIds,
+          targets,
+          undefined,
+          excluded,
+        );
+      }
+
+      return result;
+    };
+
     const [breakfastResult, lunchResult, dinnerResult] = await Promise.all([
-      this.chooseMeal.getMealsByCategories(
-        filteredCategoryIds,
-        filteredCategoryIds,
-        breakfastTargets,
-        'lunch',
-      ),
-      this.chooseMeal.getMealsByCategories(
-        filteredCategoryIds,
-        filteredCategoryIds,
-        lunchTargets,
-        'lunch',
-      ),
-      this.chooseMeal.getMealsByCategories(
-        filteredCategoryIds,
-        filteredCategoryIds,
-        dinnerTargets,
-        'dinner',
-      ),
+      fallbackMealSelection(breakfastTargets, 'breakfast'),
+      fallbackMealSelection(lunchTargets, 'lunch'),
+      fallbackMealSelection(dinnerTargets, 'dinner'),
     ]);
 
     if (
