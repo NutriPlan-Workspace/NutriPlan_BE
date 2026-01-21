@@ -13,16 +13,19 @@ export interface MealPlan extends SoftDeleteDocument {
       foodId: Schema.Types.ObjectId;
       amount: number;
       unit: number;
+      isEaten?: boolean;
     }[];
     lunch: {
       foodId: Schema.Types.ObjectId;
       amount: number;
       unit: number;
+      isEaten?: boolean;
     }[];
     dinner: {
       foodId: Schema.Types.ObjectId;
       amount: number;
       unit: number;
+      isEaten?: boolean;
     }[];
   };
 }
@@ -31,6 +34,7 @@ export interface PopulatedMealItemIngre {
   foodId: PopulatedFood;
   amount: number;
   unit: number;
+  isEaten?: boolean;
 }
 
 export interface PopulatedMealPlanIngre extends SoftDeleteDocument {
@@ -52,16 +56,19 @@ export interface GeneratedMealPlan {
       foodId: Food;
       amount: number;
       unit: number;
+      isEaten?: boolean;
     }[];
     lunch: {
       foodId: Food;
       amount: number;
       unit: number;
+      isEaten?: boolean;
     }[];
     dinner: {
       foodId: Food;
       amount: number;
       unit: number;
+      isEaten?: boolean;
     }[];
   };
 }
@@ -71,15 +78,18 @@ export interface MealPlanForUser {
     foodId: Schema.Types.ObjectId;
     amount: number;
     unit: number;
+    isEaten?: boolean;
   }[];
   lunch: {
     foodId: Schema.Types.ObjectId;
     amount: number;
     unit: number;
+    isEaten?: boolean;
   }[];
   dinner: {
     foodId: Schema.Types.ObjectId;
     amount: number;
     unit: number;
+    isEaten?: boolean;
   }[];
 }

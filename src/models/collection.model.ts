@@ -38,6 +38,27 @@ const CollectionSchema = new Schema<Collection>(
       type: Boolean,
       default: false,
     },
+    isExclusions: {
+      type: Boolean,
+      default: false,
+    },
+    isCurated: {
+      type: Boolean,
+      default: false,
+    },
+    isRecurring: {
+      type: Boolean,
+      default: false,
+    },
+    recurringFrequency: {
+      type: String,
+      enum: ['daily', 'weekly', 'monthly'],
+      required: false,
+    },
+    recurringStartDate: {
+      type: Date,
+      required: false,
+    },
   },
   { timestamps: true, autoCreate: true },
 );

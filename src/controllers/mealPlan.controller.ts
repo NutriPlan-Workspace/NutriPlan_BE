@@ -8,6 +8,7 @@ import {
   mealPlanSwapOptionsSchema,
 } from '@/schemas/mealPlan.schema';
 import mealPlanService from '@/services/mealPlan.service';
+import type { MealPlan } from '@/types';
 import {
   emptyArrayResponse,
   errorResponse,
@@ -16,6 +17,127 @@ import {
 } from '@/utils/responseFormats';
 
 class MealPlanController {
+  async adminListMealPlans(req: Request, res: Response) {
+    try {
+      const { page, limit, userId, from, to } = req.query as unknown as {
+        page?: number;
+        limit?: number;
+        userId?: string;
+        from?: string;
+        to?: string;
+      };
+
+      const result = await mealPlanService.adminListMealPlans({
+        page: Number(page) || 1,
+        limit: Number(limit) || 10,
+        userId,
+        from: from ? new Date(from) : undefined,
+        to: to ? new Date(to) : undefined,
+      });
+
+      res.status(STATUS_CODE.SUCCESS.OK).json(
+        successResponse({
+          items: result.docs,
+          total: result.totalDocs,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        }),
+      );
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            error,
+            ERROR_MESSAGE.SERVER_ERROR,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  }
+
+  async adminCreateMealPlan(req: Request, res: Response) {
+    try {
+      const { userId, mealDate, mealItems } = req.body as {
+        userId: string;
+        mealDate: Date;
+        mealItems?: MealPlan['mealItems'];
+      };
+
+      const created = await mealPlanService.adminCreateMealPlan({
+        userId,
+        mealDate: new Date(mealDate),
+        mealItems,
+      });
+
+      res.status(STATUS_CODE.SUCCESS.CREATED).json(successResponse(created));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            error,
+            ERROR_MESSAGE.SERVER_ERROR,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  }
+
+  async adminUpdateMealPlan(req: Request, res: Response) {
+    try {
+      const mealPlanId = req.params.id;
+      const { mealDate, mealItems } = req.body as {
+        mealDate?: Date;
+        mealItems?: MealPlan['mealItems'];
+      };
+
+      const updated = await mealPlanService.adminUpdateMealPlan(mealPlanId, {
+        mealDate: mealDate ? new Date(mealDate) : undefined,
+        mealItems,
+      });
+
+      if (!updated) {
+        res.status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND).json(notFoundResponse());
+        return;
+      }
+
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(updated));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            error,
+            ERROR_MESSAGE.SERVER_ERROR,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  }
+
+  async adminDeleteMealPlan(req: Request, res: Response) {
+    try {
+      const mealPlanId = req.params.id;
+      const result = await mealPlanService.removeMealPlan(mealPlanId);
+      if (!result) {
+        res.status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND).json(notFoundResponse());
+        return;
+      }
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(result));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            error,
+            ERROR_MESSAGE.SERVER_ERROR,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  }
   async addFoodToMealPlan(req: Request, res: Response) {
     try {
       const userId = req.user?.id;
@@ -129,18 +251,24 @@ class MealPlanController {
       const from = req.query?.from;
       const to = req.query?.to;
       const userId = req.user?.id;
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
       let result;
 
       if (date) {
         result = await mealPlanService.getMealPlanByDate(
           new Date(date as string),
-          userId!,
+          userId,
         );
       } else if (from && to) {
         result = await mealPlanService.getMealPlanByRange(
           new Date(from as string),
           new Date(to as string),
-          userId!,
+          userId,
         );
       }
       if (!result || (Array.isArray(result) && result.length === 0)) {
@@ -197,9 +325,15 @@ class MealPlanController {
   async getLatestMealPlan(req: Request, res: Response) {
     try {
       const userId = req.user?.id;
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
       const date = req.query?.date;
       const mealDate = new Date(date as string);
-      const result = await mealPlanService.getLatestMealPlan(mealDate, userId!);
+      const result = await mealPlanService.getLatestMealPlan(mealDate, userId);
       if (!result) {
         res.status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND).json(notFoundResponse());
         return;
@@ -210,7 +344,7 @@ class MealPlanController {
           mealDate: mealDate,
           mealItems: result.mealItems,
         },
-        userId!,
+        userId,
       );
       if (!mealPlanDay) {
         res.status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND).json(notFoundResponse());
@@ -354,6 +488,39 @@ class MealPlanController {
           );
         return;
       }
+
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(result));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(
+          errorResponse(
+            error,
+            ERROR_MESSAGE.SERVER_ERROR,
+            STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR,
+          ),
+        );
+    }
+  }
+
+  async autoGenerateMealPlanWeek(req: Request, res: Response) {
+    try {
+      const parsedData = autoGenerateMealPlanSchema.parse(req.body);
+      const { date } = parsedData;
+      const mealDate = date ? new Date(date) : new Date();
+
+      const userId = req.user?.id;
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
+
+      const result = await mealPlanService.autoGenerateMealPlanWeekForUser(
+        mealDate,
+        userId,
+      );
 
       res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(result));
     } catch (error) {

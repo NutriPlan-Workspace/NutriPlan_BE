@@ -45,16 +45,154 @@ export class CollectionService {
       query.title = { $regex: q, $options: 'i' };
     }
 
-    return this.repository.getList(
-      query,
-      {},
-      { skip: (page - 1) * limit, limit },
+    const [collections, defaults] = await Promise.all([
+      this.repository.getList(query, {}, { skip: (page - 1) * limit, limit }),
+      this.ensureDefaultCollections(userId),
+    ]);
+
+    const defaultItems = [defaults.favorites, defaults.exclusions].filter(
+      (item): item is Collection => Boolean(item),
     );
+
+    const merged = [...defaultItems, ...collections].reduce<Collection[]>(
+      (acc, item) => {
+        if (
+          acc.some(
+            (existing) => existing._id?.toString() === item._id?.toString(),
+          )
+        ) {
+          return acc;
+        }
+        acc.push(item);
+        return acc;
+      },
+      [],
+    );
+
+    return merged;
+  }
+
+  private async ensureDefaultCollections(userId: string) {
+    const queryBase = { userId: userId as unknown as Collection['userId'] };
+    const [favorites, exclusions] = await Promise.all([
+      this.repository.getList({ ...queryBase, isFavorites: true }, {}),
+      this.repository.getList({ ...queryBase, isExclusions: true }, {}),
+    ]);
+
+    let favoriteCollection = favorites[0] ?? null;
+    let exclusionCollection = exclusions[0] ?? null;
+
+    if (!favoriteCollection) {
+      favoriteCollection = await this.repository.create({
+        userId: queryBase.userId,
+        title: 'Favorites',
+        img: '',
+        description: '',
+        foods: [],
+        isFavorites: true,
+      });
+    }
+
+    if (!exclusionCollection) {
+      exclusionCollection = await this.repository.create({
+        userId: queryBase.userId,
+        title: 'Exclusions',
+        img: '',
+        description: 'Foods to exclude from search and meal plans.',
+        foods: [],
+        isExclusions: true,
+      });
+    }
+
+    return { favorites: favoriteCollection, exclusions: exclusionCollection };
+  }
+
+  async adminListCollections(params: {
+    page: number;
+    limit: number;
+    q?: string;
+    userId?: string;
+    isCurated?: boolean;
+  }) {
+    const { page, limit, q, userId, isCurated } = params;
+    const query: FilterQuery<Collection> = {};
+
+    if (q) {
+      query.title = { $regex: q, $options: 'i' };
+    }
+
+    if (userId) {
+      query.userId = userId as unknown as Collection['userId'];
+    }
+
+    if (typeof isCurated === 'boolean') {
+      query.isCurated = isCurated;
+    }
+
+    return this.repository.paginate(query, {
+      page,
+      limit,
+      sort: { createdAt: -1 },
+      populate: {
+        path: 'userId',
+        select: 'fullName email',
+      },
+    });
+  }
+
+  async getCuratedCollections(params: {
+    page: number;
+    limit: number;
+    q?: string;
+  }) {
+    const { page, limit, q } = params;
+    const query: FilterQuery<Collection> = { isCurated: true };
+
+    if (q) {
+      query.title = { $regex: q, $options: 'i' };
+    }
+
+    return this.repository.paginate(query, {
+      page,
+      limit,
+      sort: { createdAt: -1 },
+    });
   }
 
   async getFavoriteFoods(userId: string) {
     const query: FilterQuery<Collection> = { userId, isFavorites: true };
     return this.repository.getList(query, {});
+  }
+
+  async getExclusionCollection(userId: string) {
+    const query: FilterQuery<Collection> = { userId, isExclusions: true };
+    const collections = await this.repository.getList(
+      query,
+      {},
+      undefined,
+      'foods.food',
+    );
+    if (collections.length > 0) return collections[0];
+
+    return this.repository.create({
+      userId: userId as unknown as Collection['userId'],
+      title: 'Exclusions',
+      img: '',
+      description: 'Foods to exclude from search and meal plans.',
+      foods: [],
+      isExclusions: true,
+    });
+  }
+
+  async updateExclusionFoods(userId: string, foods: Collection['foods']) {
+    const collection = await this.getExclusionCollection(userId);
+    await this.repository.update(
+      collection._id.toString(),
+      { foods },
+      {},
+      { new: true },
+    );
+    return this.repository.getById(collection._id.toString());
   }
 
   async updateFavoriteFood(

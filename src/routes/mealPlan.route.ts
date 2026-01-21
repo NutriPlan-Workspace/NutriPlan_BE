@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { ROUTES } from '@/constants/routes';
 import mealPlanController from '@/controllers/mealPlan.controller';
 import {
+  isAdmin,
   parseUserIfExists,
   validateAccessToken,
 } from '@/middlewares/validateCookie.middleware';
@@ -10,6 +11,9 @@ import { validateMealPlanDateRange } from '@/middlewares/validateMealPlan.middle
 import { validateObjectId } from '@/middlewares/validateObjectId.middleware';
 import validateSchema from '@/middlewares/validateSchema.middleware';
 import {
+  adminMealPlanCreateSchema,
+  adminMealPlanListQuerySchema,
+  adminMealPlanUpdateSchema,
   autoGenerateMealPlanSchema,
   mealPlanSwapApplySchema,
   mealPlanSwapOptionsSchema,
@@ -24,7 +28,40 @@ router.post(
   mealPlanController.autoGenerateMealPlan,
 );
 
+router.post(
+  ROUTES.MEALPLAN.AUTO_GENERATE_WEEK,
+  parseUserIfExists,
+  validateSchema(autoGenerateMealPlanSchema),
+  mealPlanController.autoGenerateMealPlanWeek,
+);
+
 router.use(validateAccessToken);
+
+router.get(
+  ROUTES.MEALPLAN.ADMIN_LIST,
+  isAdmin,
+  validateSchema(adminMealPlanListQuerySchema, 'query'),
+  mealPlanController.adminListMealPlans,
+);
+router.post(
+  ROUTES.MEALPLAN.ADMIN_CREATE,
+  isAdmin,
+  validateSchema(adminMealPlanCreateSchema),
+  mealPlanController.adminCreateMealPlan,
+);
+router.put(
+  ROUTES.MEALPLAN.ADMIN_UPDATE,
+  isAdmin,
+  validateObjectId,
+  validateSchema(adminMealPlanUpdateSchema),
+  mealPlanController.adminUpdateMealPlan,
+);
+router.delete(
+  ROUTES.MEALPLAN.ADMIN_DELETE,
+  isAdmin,
+  validateObjectId,
+  mealPlanController.adminDeleteMealPlan,
+);
 
 router.get(ROUTES.MEALPLAN.GET, mealPlanController.getMealPlan);
 router.get(ROUTES.MEALPLAN.GET_LATEST, mealPlanController.getLatestMealPlan);

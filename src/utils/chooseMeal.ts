@@ -133,7 +133,9 @@ export class ChooseMeal {
   }
 
   private calculateTotalNutrition(food: Food, servingSize: number) {
-    const nutrition = (food.nutrition as any).toObject();
+    const nutrition = (
+      food.nutrition as unknown as { toObject: () => Record<string, number> }
+    ).toObject();
 
     const totalCalories = nutrition.calories * servingSize;
     const totalProtein = nutrition.proteins * servingSize;
@@ -184,7 +186,7 @@ export class ChooseMeal {
       ? Array.from(excludedCategoryIds).filter((id) => Number.isFinite(id))
       : [];
 
-    const query: any = {
+    const query: Record<string, unknown> = {
       'property.mainDish': true,
       categories: {
         $in: mainCategories,
@@ -225,7 +227,7 @@ export class ChooseMeal {
       ? Array.from(excludedCategoryIds).filter((id) => Number.isFinite(id))
       : [];
 
-    const query: any = {
+    const query: Record<string, unknown> = {
       'property.sideDish': true,
       categories: {
         $in: sideCategories,
@@ -324,5 +326,48 @@ export class ChooseMeal {
     );
 
     return combinations.slice(0, limit);
+  }
+
+  async getMealsFromFoods(
+    mainDishes: Food[],
+    sideDishes: Food[],
+    nutritionGoals: NutritionGoalsType,
+    excludedCategoryIds?: Iterable<number>,
+  ): Promise<{
+    mainDish: { food: Food; serving: number } | null;
+    sideDish: { food: Food; serving: number } | null;
+  }> {
+    const excluded = excludedCategoryIds
+      ? Array.from(excludedCategoryIds).filter((id) => Number.isFinite(id))
+      : [];
+
+    const isAllowed = (food: Food) =>
+      excluded.length === 0 ||
+      !food.categories?.some((category) => excluded.includes(category));
+
+    const filteredMain = mainDishes.filter(isAllowed);
+    const filteredSide = sideDishes.filter(isAllowed);
+
+    if (filteredMain.length === 0 || filteredSide.length === 0) {
+      return { mainDish: null, sideDish: null };
+    }
+
+    const nutritionRange = this.calculateNutritionRange(nutritionGoals);
+    filteredMain.sort(compareFood);
+    filteredSide.sort(compareFoodReverse);
+
+    const validCombinations = this.buildValidCombinations(
+      filteredMain,
+      filteredSide,
+      nutritionRange,
+      20,
+    );
+
+    if (validCombinations.length === 0) {
+      return { mainDish: null, sideDish: null };
+    }
+
+    const randomIndex = Math.floor(Math.random() * validCombinations.length);
+    return validCombinations[randomIndex];
   }
 }

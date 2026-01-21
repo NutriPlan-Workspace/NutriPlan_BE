@@ -20,11 +20,24 @@ export const CreateCollectionSchema = z.object({
   foods: z.array(FoodItemSchema).optional(),
 });
 
+export const AdminCreateCollectionSchema = CreateCollectionSchema.extend({
+  userId: ObjectIdSchema.optional(),
+  isCurated: z.boolean().optional(),
+  isRecurring: z.boolean().optional(),
+  recurringFrequency: z.enum(['daily', 'weekly', 'monthly']).optional(),
+  recurringStartDate: z.coerce.date().optional(),
+});
+
 export const collectionQuerySchema = PaginationSchema.extend({
   q: z.string().optional(),
 });
 
-export const UpdateCollectionSchema = CreateCollectionSchema.partial();
+export const UpdateCollectionSchema = CreateCollectionSchema.partial().extend({
+  isCurated: z.boolean().optional(),
+  isRecurring: z.boolean().optional(),
+  recurringFrequency: z.enum(['daily', 'weekly', 'monthly']).optional(),
+  recurringStartDate: z.coerce.date().optional(),
+});
 
 export const UpdateFavoriteListSchema = z.object({
   foods: z
@@ -36,3 +49,5 @@ export const UpdateFavoriteListSchema = z.object({
     )
     .optional(),
 });
+
+export const UpdateExclusionListSchema = UpdateFavoriteListSchema;

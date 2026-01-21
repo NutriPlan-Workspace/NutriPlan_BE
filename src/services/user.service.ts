@@ -33,6 +33,27 @@ class UserService {
     return this.repository.paginate({}, options);
   }
 
+  async adminListUsers(params: { page: number; limit: number; q?: string }) {
+    const { page, limit, q } = params;
+    const query = q
+      ? {
+          $or: [
+            { fullName: { $regex: q, $options: 'i' } },
+            { email: { $regex: q, $options: 'i' } },
+          ],
+        }
+      : {};
+
+    const options = {
+      page,
+      limit,
+      select: '-password',
+      sort: { createdAt: -1 },
+    };
+
+    return this.repository.paginate(query, options);
+  }
+
   async updatePhysicalStats(
     userId: string,
     physicalStats: Partial<User['physicalStat']>,
@@ -139,7 +160,7 @@ class UserService {
       nutritionGoals: 1,
     });
 
-    if (!user) return null;
+    if (!user || !user.physicalStat) return null;
 
     const sex = user.physicalStat.gender;
     const age = calculateAge(user.physicalStat.dateOfBirth);

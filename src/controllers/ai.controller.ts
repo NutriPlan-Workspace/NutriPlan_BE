@@ -136,9 +136,8 @@ class AiController {
         const readable = Readable.fromWeb(
           response.body as unknown as WebReadableStream<Uint8Array>,
         );
-        readable.on('data', (chunk) => {
-          res.write(chunk);
-        });
+        // Chỉ log ra khi hoàn thành stream
+
         readable.on('end', () => {
           res.end();
         });
@@ -150,7 +149,10 @@ class AiController {
 
       const data = await response.json();
       const content = data?.choices?.[0]?.message?.content ?? '';
-      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse({ content }));
+
+      res
+        .status(STATUS_CODE.SUCCESS.OK)
+        .json(successResponse({ content, contentType: 'markdown' }));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       res

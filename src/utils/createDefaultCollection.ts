@@ -9,6 +9,16 @@ export const createDefaultCollection = async (userId: string) => {
     foods: [],
     isFavorites: true,
   });
+  await defaultCollection.save();
 
-  return await defaultCollection.save();
+  const exclusionCollection = new CollectionModel({
+    userId,
+    title: 'Exclusions',
+    img: '',
+    description: 'Foods to exclude from search and meal plans.',
+    foods: [],
+    isExclusions: true,
+  });
+
+  return await exclusionCollection.save();
 };

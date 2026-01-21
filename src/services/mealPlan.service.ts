@@ -2,6 +2,7 @@ import _ from 'lodash';
 import { FilterQuery, Schema, Types } from 'mongoose';
 
 import { CATEGORIES_BY_GROUP, EXCLUDED_BY_DIET } from '@/constants/category';
+import { CollectionRepository } from '@/repositories/collection.repository';
 import { FoodRepository } from '@/repositories/food.repository';
 import { MealPlanRepository } from '@/repositories/mealPlan.repository';
 import { UserRepository } from '@/repositories/user.repository';
@@ -51,12 +52,14 @@ class MealPlanService {
   private mealPlanRepository: MealPlanRepository;
   private userRepository: UserRepository;
   private foodRepository: FoodRepository;
+  private collectionRepository: CollectionRepository;
   private chooseMeal: ChooseMeal;
 
   constructor() {
     this.mealPlanRepository = new MealPlanRepository();
     this.userRepository = new UserRepository();
     this.foodRepository = new FoodRepository();
+    this.collectionRepository = new CollectionRepository();
     this.chooseMeal = new ChooseMeal();
   }
 
@@ -66,6 +69,58 @@ class MealPlanService {
     const end = new Date(date);
     end.setUTCHours(23, 59, 59, 999);
     return { start, end };
+  }
+
+  private async getRecurringFoodsForDate(
+    userId: string,
+    date: Date,
+    excludedFoodIds: Set<string>,
+  ): Promise<Food[]> {
+    const collections = await this.collectionRepository.getList(
+      { userId, isRecurring: true },
+      {},
+      undefined,
+      'foods.food',
+    );
+
+    if (!collections.length) return [];
+
+    const matchingCollections = collections.filter((collection) => {
+      if (!collection.recurringFrequency) return false;
+      const start = collection.recurringStartDate
+        ? new Date(collection.recurringStartDate)
+        : new Date(collection.createdAt ?? new Date());
+
+      if (collection.recurringFrequency === 'daily') return true;
+      if (collection.recurringFrequency === 'weekly') {
+        return start.getDay() === date.getDay();
+      }
+      if (collection.recurringFrequency === 'monthly') {
+        return start.getDate() === date.getDate();
+      }
+      return false;
+    });
+
+    const foodIds = new Set<string>();
+    matchingCollections.forEach((collection) => {
+      collection.foods?.forEach((item) => {
+        const foodId = (item as { food?: { _id?: Types.ObjectId } })?.food?._id;
+        if (foodId) {
+          const id = foodId.toString();
+          if (!excludedFoodIds.has(id)) {
+            foodIds.add(id);
+          }
+        }
+      });
+    });
+
+    if (foodIds.size === 0) return [];
+
+    return this.foodRepository.getList(
+      { _id: { $in: Array.from(foodIds) }, deleted: false },
+      {},
+      { limit: 300 },
+    );
   }
 
   async getMealPlanByDate(date: Date, userId: string) {
@@ -128,6 +183,77 @@ class MealPlanService {
     return this.mealPlanRepository.delete(mealPlanId);
   }
 
+  async adminListMealPlans(params: {
+    page: number;
+    limit: number;
+    userId?: string;
+    from?: Date;
+    to?: Date;
+  }) {
+    const { page, limit, userId, from, to } = params;
+    const query: FilterQuery<MealPlan> = {};
+
+    if (userId) {
+      query.userId = new Types.ObjectId(
+        userId,
+      ) as unknown as Schema.Types.ObjectId;
+    }
+
+    if (from || to) {
+      const fromDate = from ? this.getDayBounds(from).start : undefined;
+      const toDate = to ? this.getDayBounds(to).end : undefined;
+      query.mealDate = {
+        ...(fromDate ? { $gte: fromDate } : {}),
+        ...(toDate ? { $lte: toDate } : {}),
+      };
+    }
+
+    return this.mealPlanRepository.paginate(query, {
+      page,
+      limit,
+      sort: { mealDate: -1 },
+      populate: {
+        path: 'userId',
+        select: 'fullName email',
+      },
+    });
+  }
+
+  async adminCreateMealPlan(input: {
+    userId: string;
+    mealDate: Date;
+    mealItems?: MealPlan['mealItems'];
+  }) {
+    const { userId, mealDate, mealItems } = input;
+    return this.mealPlanRepository.create({
+      userId: new Types.ObjectId(userId) as unknown as Schema.Types.ObjectId,
+      mealDate,
+      mealItems: {
+        breakfast: mealItems?.breakfast ?? [],
+        lunch: mealItems?.lunch ?? [],
+        dinner: mealItems?.dinner ?? [],
+      },
+    });
+  }
+
+  async adminUpdateMealPlan(
+    mealPlanId: string,
+    input: {
+      mealDate?: Date;
+      mealItems?: MealPlan['mealItems'];
+    },
+  ) {
+    const updates: Partial<MealPlan> = {};
+    if (input.mealDate) {
+      updates.mealDate = input.mealDate;
+    }
+    if (input.mealItems) {
+      updates.mealItems = input.mealItems;
+    }
+
+    return this.mealPlanRepository.update(mealPlanId, updates);
+  }
+
   async getGroceries(mealPlanData: PopulatedMealPlanIngre[]) {
     const ingredientMap: Record<
       string,
@@ -174,6 +300,7 @@ class MealPlanService {
 
         for (const item of mealItems) {
           if (!item) continue;
+          if (item.isEaten) continue;
           const ingredients = item.foodId?.ingredients || [];
           const check = item.unit === item.foodId.defaultUnit;
 
@@ -201,7 +328,10 @@ class MealPlanService {
                 Array.isArray(ingredient.categories) &&
                 ingredient.categories.length > 0
                   ? ingredient.categories
-                  : [136];
+                  : Array.isArray(item.foodId?.categories) &&
+                      item.foodId.categories.length > 0
+                    ? item.foodId.categories
+                    : [136];
               ingredientMap[key] = {
                 name: ingredient.name,
                 categories,
@@ -419,6 +549,20 @@ class MealPlanService {
         }
       });
     }
+
+    const exclusionCollections = await this.collectionRepository.getList(
+      { userId, isExclusions: true },
+      undefined,
+      { limit: 1 },
+      'foods.food',
+    );
+
+    exclusionCollections.forEach((collection) => {
+      collection.foods?.forEach((item) => {
+        const foodId = (item as { food?: { _id?: Types.ObjectId } })?.food?._id;
+        if (foodId) excludedFoodSet.add(foodId.toString());
+      });
+    });
 
     if (user?.primaryDiet && user.primaryDiet in EXCLUDED_BY_DIET) {
       const dietExcluded =
@@ -924,12 +1068,15 @@ class MealPlanService {
       return null;
     }
 
-    const { excludedCategoryIds } = await this.getExcludedData(userId);
+    const { excludedCategoryIds, excludedFoodIds } =
+      await this.getExcludedData(userId);
 
     const mealPlan = await this.generateMealPlanForUser(
       date,
       userPreferences,
       excludedCategoryIds,
+      excludedFoodIds,
+      userId,
     );
     if (!mealPlan) {
       return null;
@@ -955,6 +1102,25 @@ class MealPlanService {
       return null;
     }
     return populatedMealPlan[0].toObject();
+  }
+
+  async autoGenerateMealPlanWeekForUser(
+    date: Date,
+    userId: string,
+  ): Promise<PopulatedMealPlanIngre[]> {
+    const { startOfWeek } = getWeekRange(new Date(date));
+    const results: PopulatedMealPlanIngre[] = [];
+
+    for (let i = 0; i < 7; i += 1) {
+      const current = new Date(startOfWeek);
+      current.setDate(startOfWeek.getDate() + i);
+      const generated = await this.autoGenerateMealPlanForUser(current, userId);
+      if (generated) {
+        results.push(generated);
+      }
+    }
+
+    return results;
   }
 
   private async getUserPreferences(
@@ -995,7 +1161,19 @@ class MealPlanService {
     date: Date,
     preferences: NutritionGoalsType,
     excludedCategoryIds: Set<number>,
+    excludedFoodIds: Set<string>,
+    userId?: string,
   ): Promise<MealPlanForUser | null> {
+    const recurringFoods = userId
+      ? await this.getRecurringFoodsForDate(userId, date, excludedFoodIds)
+      : [];
+    const recurringMain = recurringFoods.filter(
+      (food) => food.property?.mainDish,
+    );
+    const recurringSide = recurringFoods.filter(
+      (food) => food.property?.sideDish,
+    );
+
     const allowedCategories = _.range(1, 137).filter(
       (id) => !excludedCategoryIds.has(id),
     );
@@ -1006,6 +1184,18 @@ class MealPlanService {
       nutritionTargets: NutritionGoalsType,
       mealType: MealType,
     ) => {
+      if (recurringFoods.length > 0) {
+        const recurringResult = await this.chooseMeal.getMealsFromFoods(
+          recurringMain,
+          recurringSide,
+          nutritionTargets,
+          excludedCategoryIds,
+        );
+        if (recurringResult.mainDish && recurringResult.sideDish) {
+          return recurringResult;
+        }
+      }
+
       let result = await this.chooseMeal.getMealsByCategories(
         mainCategories,
         sideCategories,

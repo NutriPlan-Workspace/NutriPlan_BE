@@ -98,12 +98,51 @@ export class FoodService {
 
   private async getCollectionFoods(userId: string) {
     const collections = await this.collectionRepository.getList(
-      { userId },
+      { userId, isExclusions: { $ne: true } },
       undefined,
       { limit: 200 },
       'foods.food',
     );
     return this.extractUniqueFoods(collections);
+  }
+
+  private async getExcludedFoods(
+    decoded: TokenPayload,
+    excludedFoodSet: Set<string>,
+  ) {
+    const user = await this.userRepository.getById(decoded.id, {
+      excluded: 1,
+    });
+
+    if (Array.isArray(user?.excluded?.foods)) {
+      user.excluded.foods.forEach((food) => {
+        let foodId: string | undefined;
+        if (typeof food === 'string') {
+          foodId = food;
+        } else if (food instanceof Types.ObjectId) {
+          foodId = food.toString();
+        } else {
+          foodId = (food as { foodId?: Types.ObjectId }).foodId?.toString();
+        }
+        if (foodId) {
+          excludedFoodSet.add(foodId);
+        }
+      });
+    }
+
+    const exclusionCollections = await this.collectionRepository.getList(
+      { userId: decoded.id, isExclusions: true },
+      undefined,
+      { limit: 1 },
+      'foods.food',
+    );
+
+    exclusionCollections.forEach((collection) => {
+      collection.foods?.forEach((item) => {
+        const foodId = (item as { food?: { _id?: Types.ObjectId } })?.food?._id;
+        if (foodId) excludedFoodSet.add(foodId.toString());
+      });
+    });
   }
 
   private async getExcludedCategories(
@@ -200,14 +239,20 @@ export class FoodService {
     }
     if (decoded !== null) {
       const excludedCategorySet = new Set<number>();
+      const excludedFoodSet = new Set<string>();
 
       await this.getExcludedCategories(decoded, excludedCategorySet);
+      await this.getExcludedFoods(decoded, excludedFoodSet);
+
       if (excludedCategorySet.size !== 0) {
         const excludedCategoryArray = Array.from(excludedCategorySet);
-
         if (excludedCategoryArray.length > 0) {
           query.categories = { $nin: excludedCategoryArray };
         }
+      }
+
+      if (excludedFoodSet.size > 0) {
+        query._id = { $nin: Array.from(excludedFoodSet) };
       }
     }
 
@@ -482,8 +527,11 @@ export class FoodService {
     }
     if (applyExclusionsFlag && decoded !== null) {
       const excludedCategorySet = new Set<number>();
+      const excludedFoodSet = new Set<string>();
 
       await this.getExcludedCategories(decoded, excludedCategorySet);
+      await this.getExcludedFoods(decoded, excludedFoodSet);
+
       if (excludedCategorySet.size !== 0) {
         const excludedCategoryArray = Array.from(excludedCategorySet);
         pipeline.push({
@@ -491,6 +539,14 @@ export class FoodService {
             categories: {
               $not: { $elemMatch: { $in: excludedCategoryArray } },
             },
+          },
+        });
+      }
+
+      if (excludedFoodSet.size > 0) {
+        pipeline.push({
+          $match: {
+            _id: { $nin: Array.from(excludedFoodSet) },
           },
         });
       }

@@ -32,6 +32,29 @@ export const physicalStatDto = z.object({
   activityLevel: z.nativeEnum(ActivityLevel),
 });
 
+export const physicalStatUpdateDto = z.object({
+  gender: z.nativeEnum(Gender).optional(),
+  heightRecords: z
+    .array(
+      z.object({
+        height: z.number().min(50, ERROR_MESSAGE.HEIGHT_TOO_SMALL),
+        date: z.coerce.date().optional(),
+      }),
+    )
+    .optional(),
+  weightRecords: z
+    .array(
+      z.object({
+        weight: z.number().min(10, ERROR_MESSAGE.WEIGHT_TOO_SMALL),
+        date: z.coerce.date().optional(),
+      }),
+    )
+    .optional(),
+  dateOfBirth: z.coerce.date().optional(),
+  bodyFat: z.nativeEnum(BodyFat).optional(),
+  activityLevel: z.nativeEnum(ActivityLevel).optional(),
+});
+
 const makeRangeSchema = (minGap: number) =>
   z
     .object({
@@ -104,4 +127,8 @@ export type CreateUserDto = z.infer<typeof createUserDto>;
 
 export const updateUserPasswordSchema = z.object({
   newPassword: passwordSchema,
+});
+
+export const adminUpdateUserRoleDto = z.object({
+  role: z.nativeEnum(UserRole),
 });

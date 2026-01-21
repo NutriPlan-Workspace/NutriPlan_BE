@@ -33,19 +33,33 @@ class AuthController {
         const accessToken = result.accessToken;
         const refreshToken = result.refreshToken;
         const payload = result.data.payload;
-        res.cookie('accessToken', accessToken, {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'none',
-        });
-        res.cookie('refreshToken', refreshToken, {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'none',
-        });
+        // Set HttpOnly cookies for clients that support them
+        try {
+          res.cookie('accessToken', accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            path: '/',
+          });
+          res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            path: '/',
+          });
+        } catch {
+          // ignore cookie issues in some environments
+        }
+
+        // Also include tokens in the response body so SPA clients can store and forward them
         res
           .status(STATUS_CODE.SUCCESS.OK)
-          .json(successResponse({ payload }, SUCCESS_MESSAGE.LOGIN_SUCCESS));
+          .json(
+            successResponse(
+              { payload, accessToken, refreshToken },
+              SUCCESS_MESSAGE.LOGIN_SUCCESS,
+            ),
+          );
       }
     } catch (error) {
       res
@@ -98,10 +112,11 @@ class AuthController {
             STATUS_CODE.SUCCESS.CREATED,
           ),
         );
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       res
         .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
-        .json(serverError(error?.message));
+        .json(serverError(message));
     }
   }
 

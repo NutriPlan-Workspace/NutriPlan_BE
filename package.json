@@ -8,6 +8,10 @@
     "build": "tsc && tsc-alias && tsc-esm-fix",
     "start": "node dist/app.js",
     "dev": "nodemon --exec tsx src/app.ts",
+    "seed:articles": "tsx src/scripts/seedArticles.ts",
+    "seed:categories": "tsx src/scripts/seedCategories.ts",
+    "seed:curated": "tsx src/scripts/seedCuratedCollections.ts",
+    "seed:all": "npm run seed:categories && npm run seed:articles",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky install",
     "format": "prettier --write ."

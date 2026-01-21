@@ -30,6 +30,10 @@ const MealPlanSchema = new Schema<MealPlan>(
             type: Number,
             required: true,
           },
+          isEaten: {
+            type: Boolean,
+            default: false,
+          },
         },
       ],
       lunch: [
@@ -47,6 +51,10 @@ const MealPlanSchema = new Schema<MealPlan>(
             type: Number,
             required: true,
           },
+          isEaten: {
+            type: Boolean,
+            default: false,
+          },
         },
       ],
       dinner: [
@@ -63,6 +71,10 @@ const MealPlanSchema = new Schema<MealPlan>(
           unit: {
             type: Number,
             required: true,
+          },
+          isEaten: {
+            type: Boolean,
+            default: false,
           },
         },
       ],

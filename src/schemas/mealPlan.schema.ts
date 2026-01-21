@@ -5,6 +5,7 @@ import { Food } from '@/types';
 import { PrimaryDiet } from '@/types/user.types';
 
 import { ObjectIdSchema } from './objectId.schema';
+import { PaginationSchema } from './pagination.schema';
 
 export const autoGenerateMealPlanSchema = z.object({
   date: z.string().datetime().optional(),
@@ -100,6 +101,36 @@ export const mealPlanSwapApplySchema = z
   });
 
 export type MealPlanSwapApplyInput = z.infer<typeof mealPlanSwapApplySchema>;
+
+const MealItemSchema = z.object({
+  foodId: ObjectIdSchema,
+  amount: z.number().min(0),
+  unit: z.number().min(0),
+  isEaten: z.boolean().optional(),
+});
+
+const MealItemsSchema = z.object({
+  breakfast: z.array(MealItemSchema).optional(),
+  lunch: z.array(MealItemSchema).optional(),
+  dinner: z.array(MealItemSchema).optional(),
+});
+
+export const adminMealPlanListQuerySchema = PaginationSchema.extend({
+  userId: ObjectIdSchema.optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+
+export const adminMealPlanCreateSchema = z.object({
+  userId: ObjectIdSchema,
+  mealDate: z.coerce.date(),
+  mealItems: MealItemsSchema.optional(),
+});
+
+export const adminMealPlanUpdateSchema = z.object({
+  mealDate: z.coerce.date().optional(),
+  mealItems: MealItemsSchema.optional(),
+});
 
 export type MealPlanPreferences = {
   type: PrimaryDiet;

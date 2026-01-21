@@ -17,6 +17,99 @@ class UserController {
     this.updateUserPassword = this.updateUserPassword.bind(this);
     this.getMe = this.getMe.bind(this);
     this.updateAvatar = this.updateAvatar.bind(this);
+    this.adminListUsers = this.adminListUsers.bind(this);
+    this.adminGetUserById = this.adminGetUserById.bind(this);
+    this.adminUpdateUserRole = this.adminUpdateUserRole.bind(this);
+    this.adminDeleteUser = this.adminDeleteUser.bind(this);
+  }
+
+  async adminListUsers(req: Request, res: Response) {
+    try {
+      const page = Number(req.query.page) || 1;
+      const limit = Number(req.query.limit) || 10;
+      const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+
+      const result = await userService.adminListUsers({ page, limit, q });
+
+      res.status(STATUS_CODE.SUCCESS.OK).json(
+        successResponse({
+          items: result.docs,
+          total: result.totalDocs,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        }),
+      );
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(serverError(error));
+    }
+  }
+
+  async adminGetUserById(req: Request, res: Response) {
+    try {
+      const id = req.params.id;
+      const user = await userService.getUserById(id);
+      if (!user) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
+          .json(notFoundResponse(ERROR_MESSAGE.USER.NOT_FOUND));
+        return;
+      }
+
+      // Remove password from response
+      const userObj = user.toObject();
+      delete (userObj as { password?: string }).password;
+
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(userObj));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(serverError(error));
+    }
+  }
+
+  async adminUpdateUserRole(req: Request, res: Response) {
+    try {
+      const id = req.params.id;
+      const { role } = req.body as { role: string };
+
+      const user = await userService.updateUser(id, { role } as never);
+      if (!user) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
+          .json(notFoundResponse(ERROR_MESSAGE.USER.NOT_FOUND));
+        return;
+      }
+
+      const userObj = user.toObject();
+      delete (userObj as { password?: string }).password;
+
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(userObj));
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(serverError(error));
+    }
+  }
+
+  async adminDeleteUser(req: Request, res: Response) {
+    try {
+      const id = req.params.id;
+      const result = await userService.deleteUser(id);
+      if (!result?.deletedCount) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
+          .json(notFoundResponse(ERROR_MESSAGE.USER.NOT_FOUND));
+        return;
+      }
+      res.status(STATUS_CODE.SUCCESS.OK).json(successResponse());
+    } catch (error) {
+      res
+        .status(STATUS_CODE.SERVER_ERROR.INTERNAL_SERVER_ERROR)
+        .json(serverError(error));
+    }
   }
 
   async updateUserPassword(req: Request, res: Response) {
@@ -83,19 +176,13 @@ class UserController {
   async getNutritionTarget(req: Request, res: Response) {
     try {
       const userId = req.user?.id;
-      const result = await userService.getNutritionTarget(userId!);
-      if (!result) {
+      if (!userId) {
         res
-          .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
-          .json(
-            errorResponse(
-              null,
-              ERROR_MESSAGE.NOT_FOUND,
-              STATUS_CODE.CLIENT_ERROR.NOT_FOUND,
-            ),
-          );
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
         return;
       }
+      const result = await userService.getNutritionTarget(userId);
       res.status(STATUS_CODE.SUCCESS.OK).json(successResponse(result));
     } catch (error) {
       res
@@ -113,7 +200,13 @@ class UserController {
   async updateNutritionTarget(req: Request, res: Response) {
     try {
       const userId = req.user?.id;
-      const result = await userService.updateNutritionTarget(userId!, req.body);
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
+      const result = await userService.updateNutritionTarget(userId, req.body);
       if (!result) {
         res
           .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
@@ -143,7 +236,13 @@ class UserController {
   async getPhysicalStats(req: Request, res: Response) {
     try {
       const userId = req.user?.id;
-      const result = await userService.getPhysicalStats(userId!);
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
+      const result = await userService.getPhysicalStats(userId);
       if (!result) {
         res
           .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
@@ -173,7 +272,13 @@ class UserController {
   async updatePhysicalStats(req: Request, res: Response) {
     try {
       const userId = req.user?.id;
-      const result = await userService.updatePhysicalStats(userId!, req.body);
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
+      const result = await userService.updatePhysicalStats(userId, req.body);
       if (!result) {
         res
           .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
@@ -203,7 +308,13 @@ class UserController {
   async getCaloriesByStats(req: Request, res: Response) {
     try {
       const userId = req.user?.id;
-      const result = await userService.getCaloriesByStats(userId!);
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
+      const result = await userService.getCaloriesByStats(userId);
       if (!result) {
         res
           .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
@@ -233,7 +344,13 @@ class UserController {
   async getPrimaryDiet(req: Request, res: Response) {
     try {
       const userId = req.user?.id;
-      const result = await userService.getPrimaryDiet(userId!);
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
+      const result = await userService.getPrimaryDiet(userId);
       if (!result) {
         res
           .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
@@ -263,8 +380,14 @@ class UserController {
   async updatePrimaryDiet(req: Request, res: Response) {
     try {
       const userId = req.user?.id;
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
       const result = await userService.updatePrimaryDiet(
-        userId!,
+        userId,
         req.body.primaryDiet,
       );
       if (!result) {
@@ -296,7 +419,13 @@ class UserController {
   async getFoodExclusions(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user?.id;
-      const result = await userService.getFoodExclusions(userId!);
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
+      const result = await userService.getFoodExclusions(userId);
       if (!result) {
         res
           .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
@@ -326,7 +455,13 @@ class UserController {
   async updateFoodExclusions(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user?.id;
-      const result = await userService.updateFoodExclusions(userId!, req.body);
+      if (!userId) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(errorResponse(ERROR_MESSAGE.AUTH_ERROR));
+        return;
+      }
+      const result = await userService.updateFoodExclusions(userId, req.body);
       if (!result) {
         res
           .status(STATUS_CODE.CLIENT_ERROR.NOT_FOUND)
