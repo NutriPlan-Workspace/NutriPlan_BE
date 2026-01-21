@@ -13,6 +13,21 @@ import {
 
 const router = Router();
 
+/**
+ * @swagger
+ * /articles:
+ *   get:
+ *     summary: List published articles
+ *     tags: [Articles]
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of articles
+ * */
 router.get(
   ROUTES.ARTICLES.GET,
   validateSchema(ArticleListQuerySchema, 'query'),
@@ -31,6 +46,22 @@ router.get(
   articleController.getByIdAdmin,
 );
 
+/**
+ * @swagger
+ * /articles/{slug}:
+ *   get:
+ *     summary: Get article by slug
+ *     tags: [Articles]
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Article details
+ * */
 router.get(ROUTES.ARTICLES.GET_BY_SLUG, articleController.getBySlug);
 
 router.use(validateAccessToken);

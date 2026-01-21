@@ -9,12 +9,46 @@ import { loginSchemaValidate } from '@/validations/auth.validates';
 
 const router = Router();
 
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: User login
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ * */
 router.post(
   ROUTES.AUTH.LOGIN,
   validateAuth(loginSchemaValidate),
   userController.login,
 );
 
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: User logout
+ *     tags: [Auth]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ * */
 router.post(ROUTES.AUTH.LOGOUT, userController.logout);
 
 /**

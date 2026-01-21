@@ -16,11 +16,60 @@ router.get(
   validateSchema(FoodFilterSchema, 'query'),
   foodController.getListFood,
 );
+/**
+ * @swagger
+ * /foods/search:
+ *   get:
+ *     summary: Search foods
+ *     tags: [Foods]
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Search results
+ * */
 router.get(ROUTES.FOOD.SEARCH, validateSearchFood, foodController.searchFood);
+
+/**
+ * @swagger
+ * /foods/{id}:
+ *   get:
+ *     summary: Get food by ID
+ *     tags: [Foods]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Food details
+ * */
 router.get(ROUTES.FOOD.GET_BY_ID, validateObjectId, foodController.getFoodByID);
 
 router.use(validateAccessToken);
 
+/**
+ * @swagger
+ * /foods:
+ *   post:
+ *     summary: Create custom food/recipe
+ *     tags: [Foods]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Food created
+ * */
 router.post(
   ROUTES.FOOD.CREATE,
   validateSchema(FoodSchema),

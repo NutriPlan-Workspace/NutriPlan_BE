@@ -21,6 +21,25 @@ import {
 
 const router = Router();
 
+/**
+ * @swagger
+ * /planner/auto-generate:
+ *   post:
+ *     summary: Auto-generate daily meal plan
+ *     tags: [MealPlan]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               date:
+ *                 type: string
+ *                 format: date
+ *     responses:
+ *       200:
+ *         description: Meal plan generated
+ * */
 router.post(
   ROUTES.MEALPLAN.AUTO_GENERATE,
   parseUserIfExists,
@@ -63,13 +82,96 @@ router.delete(
   mealPlanController.adminDeleteMealPlan,
 );
 
+/**
+ * @swagger
+ * /planner:
+ *   get:
+ *     summary: Get meal plan
+ *     tags: [MealPlan]
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Specific date (YYYY-MM-DD)
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date
+ *       - in: query
+ *         name: week
+ *         schema:
+ *           type: boolean
+ *         description: Get weekly plan
+ *     responses:
+ *       200:
+ *         description: Meal plan retrieved
+ * */
 router.get(ROUTES.MEALPLAN.GET, mealPlanController.getMealPlan);
 router.get(ROUTES.MEALPLAN.GET_LATEST, mealPlanController.getLatestMealPlan);
+/**
+ * @swagger
+ * /planner/groceries:
+ *   get:
+ *     summary: Get grocery list
+ *     tags: [MealPlan]
+ *     parameters:
+ *       - in: query
+ *         name: from
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: to
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: Grocery list retrieved
+ * */
 router.get(
   ROUTES.MEALPLAN.GET_GROCERIES,
   validateMealPlanDateRange,
   mealPlanController.getGroceries,
 );
+
+/**
+ * @swagger
+ * /planner:
+ *   post:
+ *     summary: Add food to meal plan
+ *     tags: [MealPlan]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [mealDate, mealType, foodId]
+ *             properties:
+ *               mealDate:
+ *                 type: string
+ *                 format: date
+ *               mealType:
+ *                 type: string
+ *                 enum: [breakfast, lunch, dinner, snack]
+ *               foodId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Food added to meal plan
+ * */
 router.post(ROUTES.MEALPLAN.ADD, mealPlanController.addFoodToMealPlan);
 
 router.put(ROUTES.MEALPLAN.EDIT, mealPlanController.editDayMealPlan);

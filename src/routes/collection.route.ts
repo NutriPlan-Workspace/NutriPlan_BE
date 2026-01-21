@@ -53,20 +53,62 @@ router.delete(
   collectionController.deleteCollection,
 );
 
+/**
+ * @swagger
+ * /collections:
+ *   get:
+ *     summary: Get user collections
+ *     tags: [Collections]
+ *     responses:
+ *       200:
+ *         description: List of collections
+ * */
 router.get(
   ROUTES.COLLECTION.GET,
   validateSchema(collectionQuerySchema, 'query'),
   collectionController.getCollection,
 );
+
+/**
+ * @swagger
+ * /collections/curated:
+ *   get:
+ *     summary: Get curated collections
+ *     tags: [Collections]
+ *     responses:
+ *       200:
+ *         description: List of curated collections
+ * */
 router.get(
   ROUTES.COLLECTION.CURATED,
   validateSchema(collectionQuerySchema, 'query'),
   collectionController.getCuratedCollections,
 );
+/**
+ * @swagger
+ * /collections/favorites:
+ *   get:
+ *     summary: Get favorite foods
+ *     tags: [Collections]
+ *     responses:
+ *       200:
+ *         description: List of favorite foods
+ * */
 router.get(
   ROUTES.COLLECTION.GET_FAVORITES,
   collectionController.getFavoriteFoods,
 );
+
+/**
+ * @swagger
+ * /collections/exclusions:
+ *   get:
+ *     summary: Get exclusion list
+ *     tags: [Collections]
+ *     responses:
+ *       200:
+ *         description: Exclusion list retrieved
+ * */
 router.get(
   ROUTES.COLLECTION.GET_EXCLUSIONS,
   collectionController.getExclusionCollection,

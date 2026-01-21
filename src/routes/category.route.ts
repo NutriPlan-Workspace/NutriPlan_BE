@@ -15,6 +15,16 @@ import {
 
 const router = Router();
 
+/**
+ * @swagger
+ * /categories:
+ *   get:
+ *     summary: List public categories
+ *     tags: [Categories]
+ *     responses:
+ *       200:
+ *         description: List of categories
+ * */
 router.get(ROUTES.CATEGORY.GET, categoryController.listPublic);
 
 router.use(validateAccessToken);

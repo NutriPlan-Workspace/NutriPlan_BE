@@ -15,6 +15,28 @@ const router = Router();
 
 router.use(validateAccessToken);
 
+/**
+ * @swagger
+ * /pantry:
+ *   get:
+ *     summary: List pantry items
+ *     tags: [Pantry]
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Search query
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [in_pantry, need_buy]
+ *         description: Filter by status
+ *     responses:
+ *       200:
+ *         description: List of items found
+ * */
 router.get(
   ROUTES.PANTRY.GET,
   validateSchema(pantryQuerySchema, 'query'),
@@ -26,6 +48,33 @@ router.post(
   validateSchema(pantryItemSchema),
   pantryController.upsert,
 );
+/**
+ * @swagger
+ * /pantry/consume:
+ *   post:
+ *     summary: Consume items (reduce quantity)
+ *     tags: [Pantry]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [items]
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [id, quantity]
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     quantity:
+ *                       type: number
+ *     responses:
+ *       200:
+ *         description: Items consumed
+ * */
 router.post(
   ROUTES.PANTRY.CONSUME,
   validateSchema(pantryConsumeSchema),
