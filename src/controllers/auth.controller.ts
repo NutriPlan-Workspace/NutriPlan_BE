@@ -33,23 +33,6 @@ class AuthController {
         const accessToken = result.accessToken;
         const refreshToken = result.refreshToken;
         const payload = result.data.payload;
-        // Set HttpOnly cookies for clients that support them
-        try {
-          res.cookie('accessToken', accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            path: '/',
-          });
-          res.cookie('refreshToken', refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            path: '/',
-          });
-        } catch {
-          // ignore cookie issues in some environments
-        }
 
         // Also include tokens in the response body so SPA clients can store and forward them
         res
@@ -76,18 +59,6 @@ class AuthController {
 
   async logout(req: Request, res: Response) {
     try {
-      res.clearCookie('accessToken', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        path: '/',
-      });
-      res.clearCookie('refreshToken', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        path: '/',
-      });
       res
         .status(STATUS_CODE.SUCCESS.OK)
         .json(successResponse(null, SUCCESS_MESSAGE.LOGOUT_SUCCESS));

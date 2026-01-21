@@ -1,12 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 
-import { ERROR_MESSAGE } from '@/constants/messages';
+// ERROR_MESSAGE removed: not used in this middleware
 import { UserRole } from '@/types/user.types';
-import {
-  generateAccessToken,
-  verifyAccessToken,
-  verifyRefreshToken,
-} from '@/utils/jwtToken';
+import { verifyAccessToken } from '@/utils/jwtToken';
 import { forbiddenResponse, unauthResponse } from '@/utils/responseFormats';
 
 export const parseUserIfExists = async (
@@ -15,15 +11,12 @@ export const parseUserIfExists = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    let accessToken = req.cookies.accessToken;
-
-    if (!accessToken && req.headers.authorization) {
-      if (
-        req.headers.authorization.startsWith('Bearer') ||
-        req.headers.authorization.startsWith('bearer')
-      ) {
-        accessToken = req.headers.authorization.split(' ')[1];
-      }
+    let accessToken;
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.toLowerCase().startsWith('bearer')
+    ) {
+      accessToken = req.headers.authorization.split(' ')[1];
     }
 
     if (!accessToken) {
@@ -34,34 +27,7 @@ export const parseUserIfExists = async (
     req.user = decoded;
     return next();
   } catch {
-    try {
-      const refreshToken = req.cookies.refreshToken;
-      if (!refreshToken) {
-        return next();
-      }
-
-      const decodedRefresh = verifyRefreshToken(refreshToken);
-      if (!decodedRefresh) {
-        return next();
-      }
-
-      const payload = {
-        id: decodedRefresh.id,
-        email: decodedRefresh.email,
-        fullName: decodedRefresh.fullName,
-        role: decodedRefresh.role,
-      };
-      const newAccessToken = generateAccessToken(payload);
-
-      res.cookie('accessToken', newAccessToken, {
-        httpOnly: true,
-      });
-
-      req.user = decodedRefresh;
-      return next();
-    } catch {
-      return next();
-    }
+    return next();
   }
 };
 
@@ -71,15 +37,13 @@ export const validateAccessToken = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    let accessToken = req.cookies.accessToken;
+    let accessToken;
 
-    if (!accessToken && req.headers.authorization) {
-      if (
-        req.headers.authorization.startsWith('Bearer') ||
-        req.headers.authorization.startsWith('bearer')
-      ) {
-        accessToken = req.headers.authorization.split(' ')[1];
-      }
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.toLowerCase().startsWith('bearer')
+    ) {
+      accessToken = req.headers.authorization.split(' ')[1];
     }
 
     if (!accessToken) {
@@ -91,39 +55,7 @@ export const validateAccessToken = async (
     req.user = decoded;
     return next();
   } catch {
-    try {
-      const refreshToken = req.cookies.refreshToken;
-      if (!refreshToken) {
-        res.status(unauthResponse().code).json(unauthResponse());
-        return;
-      }
-
-      const decodedRefresh = verifyRefreshToken(refreshToken);
-      if (!decodedRefresh) {
-        res.status(unauthResponse().code).json(unauthResponse());
-        return;
-      }
-
-      const payload = {
-        id: decodedRefresh.id,
-        email: decodedRefresh.email,
-        fullName: decodedRefresh.fullName,
-        role: decodedRefresh.role,
-      };
-      const newAccessToken = generateAccessToken(payload);
-
-      res.cookie('accessToken', newAccessToken, {
-        httpOnly: true,
-      });
-
-      req.user = decodedRefresh;
-      return next();
-    } catch {
-      res
-        .status(forbiddenResponse().code)
-        .json(forbiddenResponse(`${ERROR_MESSAGE.INVALID_TOKEN}`));
-      return;
-    }
+    res.status(unauthResponse().code).json(unauthResponse());
   }
 };
 
