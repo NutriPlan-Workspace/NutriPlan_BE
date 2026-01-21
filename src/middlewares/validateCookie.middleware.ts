@@ -15,7 +15,17 @@ export const parseUserIfExists = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const accessToken = req.cookies.accessToken;
+    let accessToken = req.cookies.accessToken;
+
+    if (!accessToken && req.headers.authorization) {
+      if (
+        req.headers.authorization.startsWith('Bearer') ||
+        req.headers.authorization.startsWith('bearer')
+      ) {
+        accessToken = req.headers.authorization.split(' ')[1];
+      }
+    }
+
     if (!accessToken) {
       return next();
     }
@@ -61,7 +71,17 @@ export const validateAccessToken = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const accessToken = req.cookies.accessToken;
+    let accessToken = req.cookies.accessToken;
+
+    if (!accessToken && req.headers.authorization) {
+      if (
+        req.headers.authorization.startsWith('Bearer') ||
+        req.headers.authorization.startsWith('bearer')
+      ) {
+        accessToken = req.headers.authorization.split(' ')[1];
+      }
+    }
+
     if (!accessToken) {
       res.status(unauthResponse().code).json(unauthResponse());
       return;
