@@ -57,6 +57,56 @@ class AuthController {
     }
   }
 
+  async refreshToken(req: Request, res: Response) {
+    try {
+      const { refreshToken } = req.body;
+      if (!refreshToken) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(
+            errorResponse(
+              null,
+              ERROR_MESSAGE.INVALID_LOGIN,
+              STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED,
+            ),
+          );
+        return;
+      }
+      const result = await userService.refreshTokenHandler(refreshToken);
+      if (!result) {
+        res
+          .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+          .json(
+            errorResponse(
+              null,
+              ERROR_MESSAGE.INVALID_LOGIN,
+              STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED,
+            ),
+          );
+      } else {
+        const accessToken = result.accessToken;
+        const newRefreshToken = result.refreshToken;
+
+        res.status(STATUS_CODE.SUCCESS.OK).json(
+          successResponse(
+            { accessToken, refreshToken: newRefreshToken },
+            SUCCESS_MESSAGE.LOGIN_SUCCESS, // Reusing success message or add new REFRESH_SUCCESS
+          ),
+        );
+      }
+    } catch (error) {
+      res
+        .status(STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED)
+        .json(
+          errorResponse(
+            error,
+            ERROR_MESSAGE.ERROR,
+            STATUS_CODE.CLIENT_ERROR.UNAUTHORIZED,
+          ),
+        );
+    }
+  }
+
   async logout(req: Request, res: Response) {
     try {
       res

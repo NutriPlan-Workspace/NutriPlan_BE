@@ -5,7 +5,10 @@ import { ROUTES } from '@/constants/routes';
 import userController from '@/controllers/auth.controller';
 import validateSchema from '@/middlewares/validateSchema.middleware';
 import { createUserDto } from '@/schemas/user.schema';
-import { loginSchemaValidate } from '@/validations/auth.validates';
+import {
+  loginSchemaValidate,
+  refreshTokenSchema,
+} from '@/validations/auth.validates';
 
 const router = Router();
 
@@ -50,6 +53,47 @@ router.post(
  *         description: Logout successful
  * */
 router.post(ROUTES.AUTH.LOGOUT, userController.logout);
+
+/**
+ * @swagger
+ * /auth/refresh-token:
+ *   post:
+ *     summary: Refresh access token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refreshToken]
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Token refresh successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accessToken:
+ *                       type: string
+ *                     refreshToken:
+ *                       type: string
+ * */
+router.post(
+  '/refresh-token',
+  validateAuth(refreshTokenSchema),
+  userController.refreshToken,
+);
 
 /**
  * @swagger

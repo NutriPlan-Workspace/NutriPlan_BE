@@ -16,3 +16,7 @@ export const loginSchemaValidate = z.object({
   email: emailSchema,
   password: passwordSchema,
 });
+
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string({ required_error: 'Refresh token is required' }),
+});

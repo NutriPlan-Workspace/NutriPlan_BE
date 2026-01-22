@@ -9,6 +9,7 @@ import {
   generateAccessToken,
   generateRefreshToken,
   verifyAccessToken,
+  verifyRefreshToken,
 } from '@/utils/jwtToken';
 import { hashPassword } from '@/utils/passwordHash';
 
@@ -46,6 +47,41 @@ class AuthService {
       refreshToken,
       data: { payload },
     };
+  }
+
+  async refreshTokenHandler(refreshToken: string) {
+    try {
+      const decoded = verifyRefreshToken(refreshToken);
+      if (!decoded) {
+        return null;
+      }
+
+      const user = await UserModel.findById(decoded.id);
+      if (!user || user.refreshToken !== refreshToken) {
+        return null;
+      }
+
+      const payload: TokenPayload = {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        avatarUrl: user.avatarUrl,
+      };
+
+      const accessToken = generateAccessToken(payload);
+      // Ideally rotate refresh token here
+      // const newRefreshToken = generateRefreshToken(payload);
+      // user.refreshToken = newRefreshToken;
+      // await user.save();
+
+      return {
+        accessToken,
+        refreshToken: refreshToken, // Return same refresh token for now, or new one if rotated
+      };
+    } catch {
+      return null;
+    }
   }
 
   async logoutHandler(accessToken: string) {
