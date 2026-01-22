@@ -2,6 +2,7 @@ import _ from 'lodash';
 import { FilterQuery, Schema, Types } from 'mongoose';
 
 import { CATEGORIES_BY_GROUP, EXCLUDED_BY_DIET } from '@/constants/category';
+import { PantryModel } from '@/models';
 import { CollectionRepository } from '@/repositories/collection.repository';
 import { FoodRepository } from '@/repositories/food.repository';
 import { MealPlanRepository } from '@/repositories/mealPlan.repository';
@@ -22,7 +23,7 @@ import type {
   GeneratedMealPlan,
   MealPlanForUser,
 } from '@/types/mealPlan.types';
-import { ChooseMeal } from '@/utils/chooseMeal';
+import { ChooseMeal, ScoringContext } from '@/utils/chooseMeal';
 import { getWeekRange } from '@/utils/date';
 
 type MacroTotals = {
@@ -1157,6 +1158,83 @@ class MealPlanService {
     };
   }
 
+  /**
+   * Get food consumption history from the previous week
+   * Used for scoring to balance familiarity and variety
+   */
+  private async getPreviousWeekFoodHistory(
+    userId: string,
+    currentDate: Date,
+  ): Promise<Map<string, number>> {
+    const endDate = new Date(currentDate);
+    endDate.setDate(endDate.getDate() - 1); // Yesterday
+
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - 7); // 7 days before yesterday
+
+    const { start } = this.getDayBounds(startDate);
+    const { end } = this.getDayBounds(endDate);
+
+    const mealPlans = await this.mealPlanRepository.getListPopulate({
+      userId,
+      mealDate: { $gte: start, $lte: end },
+    });
+
+    const foodCountMap = new Map<string, number>();
+
+    for (const plan of mealPlans) {
+      const mealTypes: ('breakfast' | 'lunch' | 'dinner')[] = [
+        'breakfast',
+        'lunch',
+        'dinner',
+      ];
+
+      for (const mealType of mealTypes) {
+        const items = plan.mealItems[mealType] || [];
+        for (const item of items) {
+          const foodId =
+            (
+              item.foodId as unknown as { _id?: Types.ObjectId }
+            )?._id?.toString() ??
+            (item.foodId as unknown as Types.ObjectId)?.toString();
+          if (foodId) {
+            foodCountMap.set(foodId, (foodCountMap.get(foodId) ?? 0) + 1);
+          }
+        }
+      }
+    }
+
+    return foodCountMap;
+  }
+
+  /**
+   * Check if a date is on a weekend (Saturday or Sunday)
+   */
+  private isWeekend(date: Date): boolean {
+    const day = date.getDay();
+    return day === 0 || day === 6;
+  }
+
+  /**
+   * Get ingredient IDs from user's pantry for scoring
+   */
+  private async getPantryIngredientIds(userId: string): Promise<Set<string>> {
+    const pantryItems = await PantryModel.find({
+      userId: new Types.ObjectId(userId) as unknown as Schema.Types.ObjectId,
+      status: 'in_pantry',
+      quantity: { $gt: 0 },
+    }).exec();
+
+    const ingredientIds = new Set<string>();
+    for (const item of pantryItems) {
+      if (item.ingredientFoodId) {
+        ingredientIds.add(item.ingredientFoodId.toString());
+      }
+    }
+
+    return ingredientIds;
+  }
+
   private async generateMealPlanForUser(
     date: Date,
     preferences: NutritionGoalsType,
@@ -1178,12 +1256,26 @@ class MealPlanService {
       (id) => !excludedCategoryIds.has(id),
     );
 
-    const getMealWithFallback = async (
+    // Get previous week food history for scoring
+    const previousWeekFoodIds = userId
+      ? await this.getPreviousWeekFoodHistory(userId, date)
+      : new Map<string, number>();
+
+    // Get pantry ingredients for scoring
+    const pantryIngredientIds = userId
+      ? await this.getPantryIngredientIds(userId)
+      : new Set<string>();
+
+    // Check if target date is a weekend
+    const isWeekend = this.isWeekend(date);
+
+    const getMealWithScoring = async (
       mainCategories: number[],
       sideCategories: number[],
       nutritionTargets: NutritionGoalsType,
       mealType: MealType,
     ) => {
+      // First try recurring foods
       if (recurringFoods.length > 0) {
         const recurringResult = await this.chooseMeal.getMealsFromFoods(
           recurringMain,
@@ -1196,14 +1288,38 @@ class MealPlanService {
         }
       }
 
-      let result = await this.chooseMeal.getMealsByCategories(
+      // Build scoring context
+      const scoringContext: ScoringContext = {
+        mealType,
+        previousWeekFoodIds,
+        pantryIngredientIds,
+        targetCalories: nutritionTargets.calories,
+        isWeekend,
+      };
+
+      // Try with scoring system
+      let result = await this.chooseMeal.getMealsByCategoriesWithScoring(
         mainCategories,
         sideCategories,
         nutritionTargets,
-        mealType,
+        scoringContext,
         excludedCategoryIds,
+        5, // Top-K = 5
       );
 
+      // Fallback to all categories if no result
+      if (!result.mainDish || !result.sideDish) {
+        result = await this.chooseMeal.getMealsByCategoriesWithScoring(
+          allowedCategories,
+          allowedCategories,
+          nutritionTargets,
+          { ...scoringContext, mealType }, // Keep mealType for scoring
+          excludedCategoryIds,
+          5,
+        );
+      }
+
+      // Final fallback without scoring
       if (!result.mainDish || !result.sideDish) {
         result = await this.chooseMeal.getMealsByCategories(
           allowedCategories,
@@ -1231,19 +1347,19 @@ class MealPlanService {
     const dinnerTargets = this.getMealNutritionTargets(preferences, 0.3);
 
     const [breakfastResult, lunchResult, dinnerResult] = await Promise.all([
-      getMealWithFallback(
+      getMealWithScoring(
         breakfastMainCategories,
         breakfastSideCategories,
         breakfastTargets,
         'breakfast',
       ),
-      getMealWithFallback(
+      getMealWithScoring(
         lunchMainCategories,
         lunchSideCategories,
         lunchTargets,
         'lunch',
       ),
-      getMealWithFallback(
+      getMealWithScoring(
         dinnerMainCategories,
         dinnerSideCategories,
         dinnerTargets,
