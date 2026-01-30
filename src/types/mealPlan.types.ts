@@ -28,6 +28,7 @@ export interface MealPlan extends SoftDeleteDocument {
       isEaten?: boolean;
     }[];
   };
+  targetPercentage?: number; // 60-120, default 100
 }
 
 export interface PopulatedMealItemIngre {
@@ -45,6 +46,7 @@ export interface PopulatedMealPlanIngre extends SoftDeleteDocument {
     lunch: PopulatedMealItemIngre[];
     dinner: PopulatedMealItemIngre[];
   };
+  targetPercentage?: number; // 60-120, default 100
 }
 
 export type MealPlanPreferences = NutritionGoalsType;

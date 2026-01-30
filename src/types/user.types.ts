@@ -11,6 +11,10 @@ export interface NutritionGoalsType {
   proteinTarget: Range;
   carbTarget: Range;
   fatTarget: Range;
+  breakfastRatio?: number;
+  lunchRatio?: number;
+  dinnerRatio?: number;
+  snackRatio?: number;
 }
 
 export interface ExtendedNutritionGoals extends NutritionGoalsType {

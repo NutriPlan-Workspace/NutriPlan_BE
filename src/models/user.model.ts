@@ -76,6 +76,11 @@ const UserSchema = new Schema<User>(
           enum: Object.values(NutritionGoals),
           default: NutritionGoals.LOSE_FAT,
         },
+
+        breakfastRatio: { type: Number, default: 0.25 },
+        lunchRatio: { type: Number, default: 0.35 },
+        dinnerRatio: { type: Number, default: 0.35 },
+        snackRatio: { type: Number, default: 0.05 },
       },
       required: false,
     },

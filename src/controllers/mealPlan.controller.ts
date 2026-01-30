@@ -442,7 +442,7 @@ class MealPlanController {
   async autoGenerateMealPlan(req: Request, res: Response) {
     try {
       const parsedData = autoGenerateMealPlanSchema.parse(req.body);
-      const { date, preferences } = parsedData;
+      const { date, preferences, targetPercentage } = parsedData;
       const mealDate = date ? new Date(date) : new Date();
 
       const userId = req.user?.id;
@@ -452,6 +452,7 @@ class MealPlanController {
         result = await mealPlanService.autoGenerateMealPlanForUser(
           mealDate,
           userId,
+          targetPercentage,
         );
 
         // If generation fails (e.g., user has no nutrition goals or exclusions are too strict),

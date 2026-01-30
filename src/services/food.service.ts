@@ -37,7 +37,12 @@ export class FoodService {
 
   private extractUniqueFoods(collections: Collection[]): Food[] {
     const foods = collections.flatMap((col) =>
-      col.foods.map((item) => item.food),
+      col.foods
+        .map((item) => item.food)
+        .filter(
+          (f): f is Food =>
+            !!f && typeof f !== 'string' && '_id' in f && !!f._id,
+        ),
     );
     const uniqueFoods = Array.from(
       new Map(foods.map((f) => [String(f._id), f])).values(),
@@ -88,7 +93,10 @@ export class FoodService {
 
   private async getFavoriteFoods(userId: string) {
     const favoriteCollections = await this.collectionRepository.getList(
-      { isFavorites: true, userId },
+      {
+        userId,
+        $or: [{ isFavorites: true }, { title: 'Favorites' }],
+      },
       undefined,
       { limit: 100 },
       'foods.food',
@@ -98,7 +106,13 @@ export class FoodService {
 
   private async getCollectionFoods(userId: string) {
     const collections = await this.collectionRepository.getList(
-      { userId, isExclusions: { $ne: true } },
+      {
+        userId,
+        isExclusions: { $ne: true },
+        title: { $ne: 'Exclusions' },
+        isFavorites: { $ne: true },
+        $and: [{ title: { $ne: 'Favorites' } }],
+      },
       undefined,
       { limit: 200 },
       'foods.food',

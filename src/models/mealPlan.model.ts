@@ -79,6 +79,12 @@ const MealPlanSchema = new Schema<MealPlan>(
         },
       ],
     },
+    targetPercentage: {
+      type: Number,
+      default: 100,
+      min: 60,
+      max: 120,
+    },
   },
   { timestamps: true, autoCreate: true },
 );

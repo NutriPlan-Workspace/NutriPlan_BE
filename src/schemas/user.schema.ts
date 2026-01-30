@@ -83,6 +83,10 @@ export const nutritionGoalsDto = z.object({
     .min(0, ERROR_MESSAGE.MAX_CHOLESTEROL)
     .optional(),
   goalType: z.nativeEnum(NutritionGoals).optional(),
+  breakfastRatio: z.number().min(0).max(1).optional(),
+  lunchRatio: z.number().min(0).max(1).optional(),
+  dinnerRatio: z.number().min(0).max(1).optional(),
+  snackRatio: z.number().min(0).max(1).optional(),
 });
 
 export const primaryDietDto = z.object({

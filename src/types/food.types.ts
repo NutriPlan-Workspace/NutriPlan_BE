@@ -142,6 +142,7 @@ export interface Food extends SoftDeleteDocument {
   isCustom: boolean;
   userId: Schema.Types.ObjectId;
   categories: number[];
+  text_content?: string;
 }
 
 export interface FoodWithIngredients {
@@ -181,6 +182,7 @@ export interface FoodWithId extends SoftDeleteDocument {
   isCustom: boolean;
   userId: Schema.Types.ObjectId;
   categories: number[];
+  text_content?: string;
 }
 
 export interface PopulatedIngredientFood {

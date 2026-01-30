@@ -9,6 +9,7 @@ import { PaginationSchema } from './pagination.schema';
 
 export const autoGenerateMealPlanSchema = z.object({
   date: z.string().datetime().optional(),
+  targetPercentage: z.number().min(60).max(120).optional(), // 60-120%, default 100
   preferences: z
     .object({
       type: z.nativeEnum(PrimaryDiet),
@@ -33,12 +34,17 @@ const swapOptionsFoodSchema = z.object({
   targetItemId: ObjectIdSchema.optional(),
   limit: z.coerce.number().int().min(1).max(20).optional(),
   tolerance: z.coerce.number().min(0.01).max(0.5).optional(),
+  filters: z.object({ q: z.string().optional() }).optional(),
 });
 
 const swapOptionsMealSchema = z.object({
   swapType: z.literal('meal'),
   mealType: MealTypeSchema,
   limit: z.coerce.number().int().min(1).max(20).optional(),
+  deepSearch: z.boolean().optional(),
+  generationMode: z.enum(['percentage', 'remaining']).optional(),
+  targetItemCount: z.coerce.number().int().min(1).max(3).optional(),
+  targetRatio: z.coerce.number().min(0).max(1).optional(),
 });
 
 export const mealPlanSwapOptionsSchema = z

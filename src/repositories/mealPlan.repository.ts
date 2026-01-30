@@ -12,6 +12,7 @@ export class MealPlanRepository extends BaseRepository<MealPlan> {
 
   private populateMeal = (mealPath: string) => ({
     path: `${mealPath}.foodId`,
+
     populate: {
       path: 'ingredients.ingredientFoodId',
       select: '_id name units imgUrls nutrition amount ',
@@ -28,6 +29,18 @@ export class MealPlanRepository extends BaseRepository<MealPlan> {
       .exec();
 
     return result as unknown as PopulatedMealPlanIngre[];
+  }
+
+  async getOnePopulate(
+    query: FilterQuery<MealPlan> = {},
+  ): Promise<PopulatedMealPlanIngre | null> {
+    const result = await MealPlanModel.findOne(query)
+      .populate(this.populateMeal('mealItems.breakfast'))
+      .populate(this.populateMeal('mealItems.lunch'))
+      .populate(this.populateMeal('mealItems.dinner'))
+      .exec();
+
+    return result as unknown as PopulatedMealPlanIngre | null;
   }
 
   async getLatestMealPlan(

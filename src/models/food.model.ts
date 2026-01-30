@@ -159,9 +159,21 @@ const FoodSchema = new Schema<Food>(
     isCustom: { type: Boolean, required: true },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     categories: { type: [Number], default: [] },
+    text_content: { type: String, required: false },
   },
   { timestamps: true, autoCreate: true },
 );
+
+FoodSchema.pre('save', function (this: Food & Document, next) {
+  const parts = [
+    this.name,
+    this.description,
+    Array.isArray(this.directions) ? this.directions.join(' ') : '',
+    this.property?.majorIngredients,
+  ];
+  this.text_content = parts.filter(Boolean).join(' ').toLowerCase();
+  next();
+});
 
 FoodSchema.plugin(MongooseDelete, { deletedAt: true, overrideMethods: true });
 FoodSchema.plugin(paginate);

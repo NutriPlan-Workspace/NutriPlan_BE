@@ -13,6 +13,7 @@ import type {
   MealPlanSwapOptionsInput,
 } from '@/schemas/mealPlan.schema';
 import type {
+  ExtendedNutritionGoals,
   Food,
   MealPlan,
   NutritionGoalsType,
@@ -23,7 +24,7 @@ import type {
   GeneratedMealPlan,
   MealPlanForUser,
 } from '@/types/mealPlan.types';
-import { ChooseMeal, ScoringContext } from '@/utils/chooseMeal';
+import { ChooseMeal, SCORE_WEIGHTS, ScoringContext } from '@/utils/chooseMeal';
 import { getWeekRange } from '@/utils/date';
 
 type MacroTotals = {
@@ -407,19 +408,33 @@ class MealPlanService {
     unit: number,
   ): MacroTotals {
     const servings = this.getServingSize(food, amount, unit);
+    // Convert Mongoose document to plain object if needed
+    const nutrition =
+      typeof (food as unknown as { toObject?: () => unknown }).toObject ===
+      'function'
+        ? (
+            food as unknown as {
+              toObject: () => { nutrition?: Record<string, number> };
+            }
+          ).toObject().nutrition
+        : food.nutrition;
+    const fats = (nutrition as Record<string, number>)?.fats ?? 0;
     return {
-      calories: (food.nutrition?.calories ?? 0) * servings,
-      protein: (food.nutrition?.proteins ?? 0) * servings,
-      carbs: (food.nutrition?.carbs ?? 0) * servings,
-      fat: (food.nutrition?.fats ?? 0) * servings,
+      calories:
+        ((nutrition as Record<string, number>)?.calories ?? 0) * servings,
+      protein:
+        ((nutrition as Record<string, number>)?.proteins ?? 0) * servings,
+      carbs: ((nutrition as Record<string, number>)?.carbs ?? 0) * servings,
+      fat: fats * servings,
     };
   }
 
   private calculateMealNutrition(items: PopulatedMealItemIngre[]): MacroTotals {
     return items.reduce(
       (acc, item) => {
+        const food = item.foodId;
         const totals = this.calculateItemNutrition(
-          item.foodId,
+          food,
           item.amount,
           item.unit,
         );
@@ -457,11 +472,11 @@ class MealPlanService {
     const otherTotals = (['breakfast', 'lunch', 'dinner'] as const)
       .filter((type) => type !== mealType)
       .reduce(
-        (acc, type) =>
-          this.addTotals(
-            acc,
-            this.calculateMealNutrition(mealItemsByType[type]),
-          ),
+        (acc, type) => {
+          const items = mealItemsByType?.[type] ?? [];
+          const mealTotal = this.calculateMealNutrition(items);
+          return this.addTotals(acc, mealTotal);
+        },
         { calories: 0, protein: 0, carbs: 0, fat: 0 },
       );
 
@@ -664,14 +679,46 @@ class MealPlanService {
     excludedFoodIds: Set<string>,
     limit: number,
     tolerance: number,
+    searchQuery?: string,
   ) {
     const excludeIds = new Set<string>(excludedFoodIds);
     excludeIds.add(targetFood._id.toString());
 
-    const baseQuery: FilterQuery<Food> = {
+    let baseQuery: FilterQuery<Food> = {
       deleted: false,
       _id: { $nin: Array.from(excludeIds) },
     };
+
+    if (searchQuery) {
+      // If searching, we prioritize the search term and ignore other filters if needed,
+      // or we keep them loose. For a explicit search, we usually want to find the item
+      // regardless of strict nutrition matching, but we still need it to be a food.
+      const regex = { $regex: searchQuery, $options: 'i' };
+
+      // Find potential ingredients that match the name
+      // We limit this lookup to avoid performance issues
+      const matchingIngredients = await this.foodRepository.getList(
+        { name: regex },
+        { _id: 1 },
+        { limit: 50 },
+      );
+      const matchingIds = matchingIngredients.map((f) => f._id);
+
+      const nameOrIngredientQuery = {
+        $or: [
+          { name: regex },
+          { 'ingredients.ingredientFoodId': { $in: matchingIds } },
+        ],
+      };
+
+      // Merge into baseQuery
+      baseQuery = { ...baseQuery, ...nameOrIngredientQuery };
+
+      // When searching, we skip the complex tiered nutrition/category logic
+      // and just return the search results (up to limit).
+      // We might want to respect dishType if strongly needed, but usually search overrides.
+      return this.foodRepository.getList(baseQuery, undefined, { limit });
+    }
 
     const categoryFilter = (useTargetCategories: boolean) => {
       const categories: Record<string, unknown> = {};
@@ -805,6 +852,7 @@ class MealPlanService {
       const limit = input.limit ?? 10;
       const tolerance = input.tolerance ?? 0.2;
 
+      const searchQuery = input.filters?.q;
       const candidates = await this.getSimilarFoods(
         targetFood,
         mealType,
@@ -812,6 +860,7 @@ class MealPlanService {
         excludedFoodIds,
         limit,
         tolerance,
+        searchQuery,
       );
 
       const isFoodOption = (
@@ -888,10 +937,48 @@ class MealPlanService {
       };
     }
 
-    const { remainingTargets, hasInsufficientRemaining } =
-      this.calculateRemainingTargets(preferences, mealPlan.mealItems, mealType);
+    // Extract new parameters (only available for meal swap type)
+    const generationMode =
+      input.swapType === 'meal' ? input.generationMode : undefined;
+    const deepSearch =
+      input.swapType === 'meal' ? input.deepSearch === true : false;
+    const targetItemCount =
+      input.swapType === 'meal' ? input.targetItemCount : undefined;
+    const targetRatio =
+      input.swapType === 'meal' ? input.targetRatio : undefined;
 
-    if (hasInsufficientRemaining) {
+    // Determine nutrition targets based on generation mode
+    let nutritionTargets: NutritionGoalsType;
+    let hasInsufficientRemaining = false;
+    let remainingTargets: NutritionGoalsType | undefined;
+
+    if (generationMode === 'percentage') {
+      // Percentage mode: fixed ratio of daily targets or custom ratio
+      let ratio = targetRatio;
+      if (!ratio && preferences) {
+        if (mealType === 'breakfast') ratio = preferences.breakfastRatio;
+        else if (mealType === 'lunch') ratio = preferences.lunchRatio;
+        else if (mealType === 'dinner') ratio = preferences.dinnerRatio;
+      }
+      // Fallback default
+      if (!ratio) {
+        ratio = mealType === 'breakfast' ? 0.25 : 0.35;
+      }
+      nutritionTargets = this.getMealNutritionTargets(preferences, ratio);
+    } else {
+      // Remaining mode (default): fill the nutritional gap
+      const result = this.calculateRemainingTargets(
+        preferences,
+        mealPlan.mealItems,
+        mealType,
+      );
+      remainingTargets = result.remainingTargets;
+      hasInsufficientRemaining = result.hasInsufficientRemaining;
+      nutritionTargets = result.remainingTargets;
+    }
+
+    // Early exit if remaining nutrition is negative (unless deep search)
+    if (hasInsufficientRemaining && !deepSearch) {
       return {
         mealPlanId,
         mealType,
@@ -911,6 +998,7 @@ class MealPlanService {
         options: [],
       };
     }
+
     const currentFoodIds = new Set<string>();
     mealItems.forEach((item) => {
       const id = item.foodId?._id?.toString();
@@ -923,66 +1011,143 @@ class MealPlanService {
       if (id) excludeFoods.add(id);
     });
 
+    // Deep search: relax category restrictions
+    const effectiveExcludedCategories = deepSearch
+      ? new Set<number>()
+      : excludedCategoryIds;
+
     const { mainCategories, sideCategories } = this.buildCategorySets(
       mealItems,
-      excludedCategoryIds,
-    );
-    const limit = input.limit ?? 10;
-
-    const combos = await this.chooseMeal.getMealOptionsByCategories(
-      mainCategories,
-      sideCategories,
-      remainingTargets,
-      mealType,
-      limit,
-      excludeFoods,
-      excludedCategoryIds,
+      effectiveExcludedCategories,
     );
 
-    if (combos.length === 0) {
-      return {
-        mealPlanId,
-        mealType,
-        swapType: 'meal',
-        notice: 'No meal options found for the remaining nutrition targets.',
-        remainingTargets,
-        target: {
-          items: mealItems.map((item) => ({
-            foodId: item.foodId?._id?.toString(),
-            amount: item.amount,
-            unit: item.unit,
-            food: item.foodId,
-          })),
-          nutrition: targetTotals,
-        },
-        options: [],
-      };
+    // Deep search: increase limit
+    const effectiveLimit = deepSearch
+      ? Math.min((input.limit ?? 10) * 3, 60)
+      : (input.limit ?? 10);
+
+    // Calculate micronutrient limits based on user preferences and meal ratio
+    let mealMicronutrientLimits:
+      | { minFiber?: number; maxSodium?: number; maxCholesterol?: number }
+      | undefined;
+
+    if (preferences) {
+      // Determine meal ratio for micronutrient calculation
+      let ratio = targetRatio;
+      if (!ratio) {
+        if (mealType === 'breakfast') ratio = preferences.breakfastRatio ?? 0.3;
+        else if (mealType === 'lunch') ratio = preferences.lunchRatio ?? 0.4;
+        else if (mealType === 'dinner') ratio = preferences.dinnerRatio ?? 0.3;
+        else ratio = 0.33;
+      }
+
+      const dailyMinFiber = preferences.minimumFiber || 0;
+      const dailyMaxSodium = preferences.maxiumSodium || 0;
+      const dailyMaxCholesterol = preferences.maxiumCholesterol || 0;
+
+      if (dailyMinFiber > 0 || dailyMaxSodium > 0 || dailyMaxCholesterol > 0) {
+        mealMicronutrientLimits = {
+          minFiber: dailyMinFiber > 0 ? dailyMinFiber * ratio : undefined,
+          maxSodium: dailyMaxSodium > 0 ? dailyMaxSodium * ratio : undefined,
+          maxCholesterol:
+            dailyMaxCholesterol > 0 ? dailyMaxCholesterol * ratio : undefined,
+        };
+      }
     }
 
-    const options = combos.map((combo) => {
-      const mainUnit = combo.mainDish.food.defaultUnit ?? 0;
-      const mainUnitAmount = combo.mainDish.food.units?.[mainUnit]?.amount ?? 1;
-      const sideUnit = combo.sideDish.food.defaultUnit ?? 0;
-      const sideUnitAmount = combo.sideDish.food.units?.[sideUnit]?.amount ?? 1;
+    // Build scoring context for micronutrient-aware meal selection
+    const swapScoringContext = mealMicronutrientLimits
+      ? {
+          mealType,
+          targetCalories: nutritionTargets.calories,
+          ...mealMicronutrientLimits,
+        }
+      : undefined;
 
-      return {
-        items: [
-          {
-            foodId: combo.mainDish.food._id.toString(),
-            amount: this.roundAmount(combo.mainDish.serving * mainUnitAmount),
-            unit: mainUnit,
-            food: combo.mainDish.food,
-          },
-          {
-            foodId: combo.sideDish.food._id.toString(),
-            amount: this.roundAmount(combo.sideDish.serving * sideUnitAmount),
-            unit: sideUnit,
-            food: combo.sideDish.food,
-          },
-        ],
-        nutrition: combo.totals,
+    // Use different combo generation for deep search vs normal search
+    let options: Array<{
+      items: Array<{
+        foodId: string;
+        amount: number;
+        unit: number;
+        food: unknown;
+      }>;
+      nutrition: {
+        calories: number;
+        protein: number;
+        carbs: number;
+        fat: number;
       };
-    });
+    }>;
+
+    const useFlexibleSearch = deepSearch || targetItemCount !== undefined;
+
+    if (useFlexibleSearch) {
+      // Deep search or specific item count: use flexible 1-3 item combos
+      const flexibleCombos = await this.chooseMeal.getFlexibleMealOptions(
+        mainCategories,
+        sideCategories,
+        nutritionTargets,
+        mealType,
+        effectiveLimit,
+        excludeFoods,
+        targetItemCount,
+        swapScoringContext,
+      );
+
+      options = flexibleCombos.map((combo) => ({
+        items: combo.items.map((item) => {
+          const unit = item.food.defaultUnit ?? 0;
+          const unitAmount = item.food.units?.[unit]?.amount ?? 1;
+          return {
+            foodId: item.food._id.toString(),
+            amount: this.roundAmount(item.serving * unitAmount),
+            unit,
+            food: item.food,
+          };
+        }),
+        nutrition: combo.totals,
+      }));
+    } else {
+      // Normal search: use 2-item combos (main + side)
+      const combos = await this.chooseMeal.getMealOptionsByCategories(
+        mainCategories,
+        sideCategories,
+        nutritionTargets,
+        mealType,
+        effectiveLimit,
+        excludeFoods,
+        effectiveExcludedCategories,
+        swapScoringContext,
+      );
+
+      options = combos.map((combo) => {
+        const mainUnit = combo.mainDish.food.defaultUnit ?? 0;
+        const mainUnitAmount =
+          combo.mainDish.food.units?.[mainUnit]?.amount ?? 1;
+        const sideUnit = combo.sideDish.food.defaultUnit ?? 0;
+        const sideUnitAmount =
+          combo.sideDish.food.units?.[sideUnit]?.amount ?? 1;
+
+        return {
+          items: [
+            {
+              foodId: combo.mainDish.food._id.toString(),
+              amount: this.roundAmount(combo.mainDish.serving * mainUnitAmount),
+              unit: mainUnit,
+              food: combo.mainDish.food,
+            },
+            {
+              foodId: combo.sideDish.food._id.toString(),
+              amount: this.roundAmount(combo.sideDish.serving * sideUnitAmount),
+              unit: sideUnit,
+              food: combo.sideDish.food,
+            },
+          ],
+          nutrition: combo.totals,
+        };
+      });
+    }
 
     return {
       mealPlanId,
@@ -1063,6 +1228,8 @@ class MealPlanService {
   async autoGenerateMealPlanForUser(
     date: Date,
     userId: string,
+    targetPercentage = 100,
+    generatedFoodIdsThisWeek?: Map<string, number>,
   ): Promise<PopulatedMealPlanIngre | null> {
     const userPreferences = await this.getUserPreferences(userId);
     if (!userPreferences) {
@@ -1078,6 +1245,8 @@ class MealPlanService {
       excludedCategoryIds,
       excludedFoodIds,
       userId,
+      targetPercentage,
+      generatedFoodIdsThisWeek,
     );
     if (!mealPlan) {
       return null;
@@ -1093,6 +1262,7 @@ class MealPlanService {
       userId: new Types.ObjectId(userId) as unknown as Schema.Types.ObjectId,
       mealDate: date,
       mealItems: mealPlan,
+      targetPercentage,
     });
 
     const populatedMealPlan = await this.mealPlanRepository.getListPopulate({
@@ -1112,12 +1282,39 @@ class MealPlanService {
     const { startOfWeek } = getWeekRange(new Date(date));
     const results: PopulatedMealPlanIngre[] = [];
 
+    // Track foods generated during this week to prevent repetition
+    const generatedFoodIdsThisWeek = new Map<string, number>();
+
     for (let i = 0; i < 7; i += 1) {
       const current = new Date(startOfWeek);
       current.setDate(startOfWeek.getDate() + i);
-      const generated = await this.autoGenerateMealPlanForUser(current, userId);
+      const generated = await this.autoGenerateMealPlanForUser(
+        current,
+        userId,
+        100,
+        generatedFoodIdsThisWeek,
+      );
       if (generated) {
         results.push(generated);
+
+        // Update history for next days
+        const updateHistory = (items: PopulatedMealItemIngre[]) => {
+          items.forEach((item) => {
+            if (item.foodId) {
+              const id = item.foodId._id?.toString() || item.foodId.toString();
+              generatedFoodIdsThisWeek.set(
+                id,
+                (generatedFoodIdsThisWeek.get(id) || 0) + 1,
+              );
+            }
+          });
+        };
+
+        if (generated.mealItems.breakfast)
+          updateHistory(generated.mealItems.breakfast);
+        if (generated.mealItems.lunch) updateHistory(generated.mealItems.lunch);
+        if (generated.mealItems.dinner)
+          updateHistory(generated.mealItems.dinner);
       }
     }
 
@@ -1126,7 +1323,7 @@ class MealPlanService {
 
   private async getUserPreferences(
     userId: string,
-  ): Promise<NutritionGoalsType | null> {
+  ): Promise<ExtendedNutritionGoals | null> {
     const user = await this.userRepository.getById(userId, {
       nutritionGoals: 1,
     });
@@ -1208,6 +1405,94 @@ class MealPlanService {
   }
 
   /**
+   * Get food IDs eaten on the same day last week
+   */
+  private async getSameDayLastWeekFoodHistory(
+    userId: string,
+    currentDate: Date,
+  ): Promise<Set<string>> {
+    const targetDate = new Date(currentDate);
+    targetDate.setDate(targetDate.getDate() - 7); // Same day last week
+
+    const { start, end } = this.getDayBounds(targetDate);
+
+    const mealPlan = await this.mealPlanRepository.getOnePopulate({
+      userId,
+      mealDate: { $gte: start, $lte: end },
+    });
+
+    const foodIds = new Set<string>();
+
+    if (mealPlan) {
+      const mealTypes: ('breakfast' | 'lunch' | 'dinner')[] = [
+        'breakfast',
+        'lunch',
+        'dinner',
+      ];
+
+      for (const mealType of mealTypes) {
+        const items = mealPlan.mealItems[mealType] || [];
+        for (const item of items) {
+          const foodId =
+            (
+              item.foodId as unknown as { _id?: Types.ObjectId }
+            )?._id?.toString() ??
+            (item.foodId as unknown as Types.ObjectId)?.toString();
+          if (foodId) {
+            foodIds.add(foodId);
+          }
+        }
+      }
+    }
+
+    return foodIds;
+  }
+
+  /**
+   * Get food IDs eaten yesterday (heavy penalty to avoid repetition)
+   */
+  private async getYesterdayFoodHistory(
+    userId: string,
+    currentDate: Date,
+  ): Promise<Set<string>> {
+    const yesterday = new Date(currentDate);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const { start, end } = this.getDayBounds(yesterday);
+
+    const mealPlan = await this.mealPlanRepository.getOnePopulate({
+      userId,
+      mealDate: { $gte: start, $lte: end },
+    });
+
+    const foodIds = new Set<string>();
+
+    if (mealPlan) {
+      const mealTypes: ('breakfast' | 'lunch' | 'dinner')[] = [
+        'breakfast',
+        'lunch',
+        'dinner',
+      ];
+
+      for (const mealType of mealTypes) {
+        const items = mealPlan.mealItems[mealType] || [];
+        for (const item of items) {
+          const foodId =
+            (
+              item.foodId as unknown as { _id?: Types.ObjectId }
+            )?._id?.toString() ??
+            (item.foodId as unknown as Types.ObjectId)?.toString();
+          if (foodId) {
+            foodIds.add(foodId);
+          }
+        }
+      }
+    }
+
+    return foodIds;
+  }
+
+  /**
    * Check if a date is on a weekend (Saturday or Sunday)
    */
   private isWeekend(date: Date): boolean {
@@ -1241,6 +1526,8 @@ class MealPlanService {
     excludedCategoryIds: Set<number>,
     excludedFoodIds: Set<string>,
     userId?: string,
+    targetPercentage = 100,
+    generatedFoodIdsThisWeek?: Map<string, number>,
   ): Promise<MealPlanForUser | null> {
     const recurringFoods = userId
       ? await this.getRecurringFoodsForDate(userId, date, excludedFoodIds)
@@ -1261,6 +1548,23 @@ class MealPlanService {
       ? await this.getPreviousWeekFoodHistory(userId, date)
       : new Map<string, number>();
 
+    // Merge recent history from this week's generation
+    if (generatedFoodIdsThisWeek) {
+      generatedFoodIdsThisWeek.forEach((count, id) => {
+        previousWeekFoodIds.set(id, (previousWeekFoodIds.get(id) || 0) + count);
+      });
+    }
+
+    // Get same day last week food history for routine scoring
+    const sameDayLastWeekFoodIds = userId
+      ? await this.getSameDayLastWeekFoodHistory(userId, date)
+      : new Set<string>();
+
+    // Get yesterday's food history for heavy penalty
+    const yesterdayFoodIds = userId
+      ? await this.getYesterdayFoodHistory(userId, date)
+      : new Set<string>();
+
     // Get pantry ingredients for scoring
     const pantryIngredientIds = userId
       ? await this.getPantryIngredientIds(userId)
@@ -1274,28 +1578,58 @@ class MealPlanService {
       sideCategories: number[],
       nutritionTargets: NutritionGoalsType,
       mealType: MealType,
+      micronutrientLimits: {
+        minFiber?: number;
+        maxSodium?: number;
+        maxCholesterol?: number;
+      } = {},
+      usedFoodIdsToday: Set<string> = new Set(),
+      usedCategoryIdsToday: Set<number> = new Set(),
     ) => {
-      // First try recurring foods
+      // Build recurring bonus map (Direct + Related foods)
+      const recurringBonusMap = new Map<string, number>();
+
+      // 1. Direct Recurring Foods get highest bonus
+      const recurringFoodIdList = recurringFoods
+        .map((f) => f._id?.toString())
+        .filter(Boolean) as string[];
+      recurringFoodIdList.forEach((id) =>
+        recurringBonusMap.set(id, SCORE_WEIGHTS.RECURRING_COLLECTION_BONUS),
+      );
+
+      // TODO: Add relatedFoods field to Food schema and use it here
+      // Currently relatedFoods field does not exist in Food model
+
+      // Build scoring context
+      const scoringContext: ScoringContext = {
+        mealType,
+        previousWeekFoodIds,
+        sameDayLastWeekFoodIds,
+        yesterdayFoodIds, // Heavy penalty for yesterday's foods
+        recurringBonusMap,
+        recurringMainFoods: recurringMain,
+        recurringSideFoods: recurringSide,
+        excludeFoodIdsForDay: usedFoodIdsToday,
+        usedCategoryIdsToday: usedCategoryIdsToday, // Add context
+        pantryIngredientIds,
+        targetCalories: nutritionTargets.calories,
+        isWeekend,
+        ...micronutrientLimits,
+      };
+
+      // First try recurring foods with scoring
       if (recurringFoods.length > 0) {
         const recurringResult = await this.chooseMeal.getMealsFromFoods(
           recurringMain,
           recurringSide,
           nutritionTargets,
           excludedCategoryIds,
+          scoringContext,
         );
         if (recurringResult.mainDish && recurringResult.sideDish) {
           return recurringResult;
         }
       }
-
-      // Build scoring context
-      const scoringContext: ScoringContext = {
-        mealType,
-        previousWeekFoodIds,
-        pantryIngredientIds,
-        targetCalories: nutritionTargets.calories,
-        isWeekend,
-      };
 
       // Try with scoring system
       let result = await this.chooseMeal.getMealsByCategoriesWithScoring(
@@ -1304,7 +1638,7 @@ class MealPlanService {
         nutritionTargets,
         scoringContext,
         excludedCategoryIds,
-        5, // Top-K = 5
+        20, // Top-K = 20 (Increased from 5 for variety)
       );
 
       // Fallback to all categories if no result
@@ -1315,7 +1649,7 @@ class MealPlanService {
           nutritionTargets,
           { ...scoringContext, mealType }, // Keep mealType for scoring
           excludedCategoryIds,
-          5,
+          20,
         );
       }
 
@@ -1327,6 +1661,7 @@ class MealPlanService {
           nutritionTargets,
           undefined,
           excludedCategoryIds,
+          scoringContext, // Pass context to apply hard filter for excludeFoodIdsForDay
         );
       }
 
@@ -1342,118 +1677,198 @@ class MealPlanService {
     const dinnerMainCategories = [10, 66];
     const dinnerSideCategories = [28, 13];
 
-    const breakfastTargets = this.getMealNutritionTargets(preferences, 0.3);
-    const lunchTargets = this.getMealNutritionTargets(preferences, 0.4);
-    const dinnerTargets = this.getMealNutritionTargets(preferences, 0.3);
+    // Use user preferences for meal ratios, fallback to defaults if not set
+    const breakfastRatio = preferences.breakfastRatio ?? 0.3;
+    const lunchRatio = preferences.lunchRatio ?? 0.4;
+    const dinnerRatio = preferences.dinnerRatio ?? 0.3;
 
-    const [breakfastResult, lunchResult, dinnerResult] = await Promise.all([
-      getMealWithScoring(
-        breakfastMainCategories,
-        breakfastSideCategories,
-        breakfastTargets,
-        'breakfast',
-      ),
-      getMealWithScoring(
-        lunchMainCategories,
-        lunchSideCategories,
-        lunchTargets,
-        'lunch',
-      ),
-      getMealWithScoring(
-        dinnerMainCategories,
-        dinnerSideCategories,
-        dinnerTargets,
-        'dinner',
-      ),
-    ]);
+    // Scale nutrition targets by targetPercentage (e.g., 80% = eat 80% of daily target)
+    const scaleFactor = targetPercentage / 100;
+
+    const extendedPreferences = preferences as ExtendedNutritionGoals;
+    const dailyMinFiber = (extendedPreferences.minimumFiber || 0) * scaleFactor;
+    const dailyMaxSodium =
+      (extendedPreferences.maxiumSodium || 0) * scaleFactor;
+    const dailyMaxCholesterol =
+      (extendedPreferences.maxiumCholesterol || 0) * scaleFactor;
+
+    const scaledPreferences: NutritionGoalsType = {
+      ...preferences,
+      calories: Math.round(preferences.calories * scaleFactor),
+      proteinTarget: {
+        from: Math.round(preferences.proteinTarget.from * scaleFactor),
+        to: Math.round(preferences.proteinTarget.to * scaleFactor),
+      },
+      carbTarget: {
+        from: Math.round(preferences.carbTarget.from * scaleFactor),
+        to: Math.round(preferences.carbTarget.to * scaleFactor),
+      },
+      fatTarget: {
+        from: Math.round(preferences.fatTarget.from * scaleFactor),
+        to: Math.round(preferences.fatTarget.to * scaleFactor),
+      },
+    };
+
+    const breakfastTargets = this.getMealNutritionTargets(
+      scaledPreferences,
+      breakfastRatio,
+    );
+    const lunchTargets = this.getMealNutritionTargets(
+      scaledPreferences,
+      lunchRatio,
+    );
+    const dinnerTargets = this.getMealNutritionTargets(
+      scaledPreferences,
+      dinnerRatio,
+    );
+
+    // Generate meals with random order to distribute recurring foods fairly
+    const mealConfigs = {
+      breakfast: {
+        main: breakfastMainCategories,
+        side: breakfastSideCategories,
+        targets: breakfastTargets,
+        ratio: breakfastRatio,
+      },
+      lunch: {
+        main: lunchMainCategories,
+        side: lunchSideCategories,
+        targets: lunchTargets,
+        ratio: lunchRatio,
+      },
+      dinner: {
+        main: dinnerMainCategories,
+        side: dinnerSideCategories,
+        targets: dinnerTargets,
+        ratio: dinnerRatio,
+      },
+    };
+
+    type MealResult = {
+      mainDish: { food: Food; serving: number } | null;
+      sideDish: { food: Food; serving: number } | null;
+      score?: number;
+      scoreBreakdown?: Record<string, number>;
+    };
+
+    const mealTypes = _.shuffle(['breakfast', 'lunch', 'dinner'] as const);
+    const results: Record<string, MealResult> = {};
+    const usedFoodIdsToday = new Set<string>();
+    const usedCategoryIdsToday = new Set<number>();
+
+    for (const type of mealTypes) {
+      const config = mealConfigs[type];
+      const limits = {
+        minFiber: dailyMinFiber * config.ratio,
+        maxSodium: dailyMaxSodium * config.ratio,
+        maxCholesterol: dailyMaxCholesterol * config.ratio,
+      };
+
+      const result = await getMealWithScoring(
+        config.main,
+        config.side,
+        config.targets,
+        type,
+        limits,
+        usedFoodIdsToday,
+        usedCategoryIdsToday, // Pass usage history
+      );
+      results[type] = result;
+
+      if (result.mainDish) {
+        usedFoodIdsToday.add(result.mainDish.food._id?.toString() || '');
+        // Track categories
+        result.mainDish.food.categories?.forEach((cat: number) =>
+          usedCategoryIdsToday.add(cat),
+        );
+      }
+      if (result.sideDish) {
+        usedFoodIdsToday.add(result.sideDish.food._id?.toString() || '');
+        result.sideDish.food.categories?.forEach((cat: number) =>
+          usedCategoryIdsToday.add(cat),
+        );
+      }
+    }
+
+    const {
+      breakfast: breakfastResult,
+      lunch: lunchResult,
+      dinner: dinnerResult,
+    } = results;
 
     if (
       !breakfastResult.mainDish ||
-      !breakfastResult.sideDish ||
       !lunchResult.mainDish ||
-      !lunchResult.sideDish ||
-      !dinnerResult.mainDish ||
-      !dinnerResult.sideDish
+      !dinnerResult.mainDish
     ) {
+      // Only mainDish is required; sideDish can be null for single-food meals
       return null;
     }
 
     const breakfastMainDishId = breakfastResult.mainDish.food
       ._id as unknown as Schema.Types.ObjectId;
-    const breakfastSideDishId = breakfastResult.sideDish.food
-      ._id as unknown as Schema.Types.ObjectId;
+    const breakfastSideDishId = breakfastResult.sideDish?.food
+      ._id as unknown as Schema.Types.ObjectId | undefined;
 
     const lunchMainDishId = lunchResult.mainDish.food
       ._id as unknown as Schema.Types.ObjectId;
-    const lunchSideDishId = lunchResult.sideDish.food
-      ._id as unknown as Schema.Types.ObjectId;
+    const lunchSideDishId = lunchResult.sideDish?.food._id as unknown as
+      | Schema.Types.ObjectId
+      | undefined;
 
     const dinnerMainDishId = dinnerResult.mainDish.food
       ._id as unknown as Schema.Types.ObjectId;
-    const dinnerSideDishId = dinnerResult.sideDish.food
-      ._id as unknown as Schema.Types.ObjectId;
+    const dinnerSideDishId = dinnerResult.sideDish?.food._id as unknown as
+      | Schema.Types.ObjectId
+      | undefined;
+
+    // Helper to build meal items (filter out null sideDish)
+    const buildMealItems = (
+      mainDish: { food: Food; serving: number },
+      sideDish: { food: Food; serving: number } | null,
+      mainId: Schema.Types.ObjectId,
+      sideId: Schema.Types.ObjectId | undefined,
+    ) => {
+      const items = [
+        {
+          foodId: mainId,
+          amount:
+            mainDish.serving *
+            mainDish.food.units[mainDish.food.defaultUnit].amount,
+          unit: mainDish.food.defaultUnit,
+        },
+      ];
+      if (sideDish && sideId) {
+        items.push({
+          foodId: sideId,
+          amount:
+            sideDish.serving *
+            sideDish.food.units[sideDish.food.defaultUnit].amount,
+          unit: sideDish.food.defaultUnit,
+        });
+      }
+      return items;
+    };
 
     return {
-      breakfast: [
-        {
-          foodId: breakfastMainDishId,
-          amount:
-            breakfastResult.mainDish.serving *
-            breakfastResult.mainDish.food.units[
-              breakfastResult.mainDish.food.defaultUnit
-            ].amount,
-          unit: breakfastResult.mainDish.food.defaultUnit,
-        },
-        {
-          foodId: breakfastSideDishId,
-          amount:
-            breakfastResult.sideDish.serving *
-            breakfastResult.sideDish.food.units[
-              breakfastResult.sideDish.food.defaultUnit
-            ].amount,
-          unit: breakfastResult.sideDish.food.defaultUnit,
-        },
-      ],
-      lunch: [
-        {
-          foodId: lunchMainDishId,
-          amount:
-            lunchResult.mainDish.serving *
-            lunchResult.mainDish.food.units[
-              lunchResult.mainDish.food.defaultUnit
-            ].amount,
-          unit: lunchResult.mainDish.food.defaultUnit,
-        },
-        {
-          foodId: lunchSideDishId,
-          amount:
-            lunchResult.sideDish.serving *
-            lunchResult.sideDish.food.units[
-              lunchResult.sideDish.food.defaultUnit
-            ].amount,
-          unit: lunchResult.sideDish.food.defaultUnit,
-        },
-      ],
-      dinner: [
-        {
-          foodId: dinnerMainDishId,
-          amount:
-            dinnerResult.mainDish.serving *
-            dinnerResult.mainDish.food.units[
-              dinnerResult.mainDish.food.defaultUnit
-            ].amount,
-          unit: dinnerResult.mainDish.food.defaultUnit,
-        },
-        {
-          foodId: dinnerSideDishId,
-          amount:
-            dinnerResult.sideDish.serving *
-            dinnerResult.sideDish.food.units[
-              dinnerResult.sideDish.food.defaultUnit
-            ].amount,
-          unit: dinnerResult.sideDish.food.defaultUnit,
-        },
-      ],
+      breakfast: buildMealItems(
+        breakfastResult.mainDish,
+        breakfastResult.sideDish,
+        breakfastMainDishId,
+        breakfastSideDishId,
+      ),
+      lunch: buildMealItems(
+        lunchResult.mainDish,
+        lunchResult.sideDish,
+        lunchMainDishId,
+        lunchSideDishId,
+      ),
+      dinner: buildMealItems(
+        dinnerResult.mainDish,
+        dinnerResult.sideDish,
+        dinnerMainDishId,
+        dinnerSideDishId,
+      ),
     };
   }
 
@@ -1526,6 +1941,7 @@ class MealPlanService {
       },
     };
 
+    // Default ratios for demo mode (no user preferences available)
     const breakfastTargets = this.getMealNutritionTargets(nutritionRanges, 0.3);
     const lunchTargets = this.getMealNutritionTargets(nutritionRanges, 0.4);
     const dinnerTargets = this.getMealNutritionTargets(nutritionRanges, 0.3);

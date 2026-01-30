@@ -30,7 +30,12 @@ export const verifyRefreshToken = (token: string): TokenPayload => {
 };
 export const decodeAccessToken = (req: Request): TokenPayload | null => {
   try {
-    const token = req.cookies.accessToken;
+    let token = req.cookies.accessToken;
+
+    if (!token && req.headers.authorization?.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
     if (!token) return null;
 
     const decoded = verifyAccessToken(token);
