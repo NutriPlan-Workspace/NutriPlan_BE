@@ -1,37 +1,51 @@
-# NutriPlan Backend
 
 <div align="center">
 
-Backend API for the NutriPlan system. Provides authentication, user/profile management, meal planning, foods, collections, pantry, analytics, and an AI chat gateway.
+<a href="https://nutriplanbe-production.up.railway.app/api-docs/" target="_blank" rel="noopener noreferrer">
+  <img src="https://img.shields.io/badge/Live%20API%20Docs-Click%20to%20Try-4ADE80?style=for-the-badge&logo=swagger&logoColor=white" alt="Live API Docs Badge" />
+</a>
+
+<br/>
+
+<a href="https://nutriplanbe-production.up.railway.app/api-docs/" target="_blank" rel="noopener noreferrer">
+  <img src="https://res.cloudinary.com/dtwrwvffl/image/upload/v1746503177/gordxatzr6puhs6upcfl.png" alt="NutriPlan API Screenshot" width="60%" style="border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08);" />
+</a>
+
+<p>
+  <strong>✨ Explore NutriPlan API instantly — no auth required for docs!</strong><br/>
+  <em>Try out endpoints, see models, and understand backend features in real time.</em>
+</p>
+
+<br/>
 
 ![Node.js](https://img.shields.io/badge/Node.js-22.x-339933?style=for-the-badge&logo=node.js&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![Express](https://img.shields.io/badge/Express-4.x-000000?style=for-the-badge&logo=express&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7.3-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Express](https://img.shields.io/badge/Express-4.21.2-000000?style=for-the-badge&logo=express&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
 ![Swagger](https://img.shields.io/badge/Swagger-OpenAPI_3-85EA2D?style=for-the-badge&logo=swagger&logoColor=1A1A1A)
-
+![Zod](https://img.shields.io/badge/Zod-3.24.2-0B7CFA?style=for-the-badge&logoColor=white)
 </div>
+
 
 ## Table of Contents
 
-- [NutriPlan Backend](#nutriplan-backend)
-  - [Table of Contents](#table-of-contents)
-  - [Introduction](#introduction)
-  - [System Architecture](#system-architecture)
-  - [API Overview](#api-overview)
-    - [Base URL](#base-url)
-    - [Swagger](#swagger)
-    - [Major Route Groups](#major-route-groups)
-  - [Getting Started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Install](#install)
-    - [Configure environment variables](#configure-environment-variables)
-    - [Run in development](#run-in-development)
-    - [Build and run production](#build-and-run-production)
-    - [Seed data (optional)](#seed-data-optional)
-  - [Environment Configuration](#environment-configuration)
-  - [Scripts](#scripts)
-  - [Project Structure](#project-structure)
+- [Table of Contents](#table-of-contents)
+- [Introduction](#introduction)
+- [System Architecture](#system-architecture)
+- [API Overview](#api-overview)
+  - [Base URL](#base-url)
+  - [Swagger](#swagger)
+  - [Major Route Groups](#major-route-groups)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Install](#install)
+  - [Configure environment variables](#configure-environment-variables)
+  - [Run in development](#run-in-development)
+  - [Build and run production](#build-and-run-production)
+  - [Seed data (optional)](#seed-data-optional)
+- [Environment Configuration](#environment-configuration)
+- [Scripts](#scripts)
+- [Project Structure](#project-structure)
 
 ---
 
